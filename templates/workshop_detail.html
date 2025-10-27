@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Workshop: {{ workshop[1] }}</h2>
+  <a href="{{ url_for('workshops_list') }}" class="btn btn-secondary mb-3">Back to Workshops</a>
+
+  <table class="table table-sm table-bordered">
+    <thead class="table-dark"><tr><th>Card</th><th>Paragraph</th><th>Step</th><th>Level</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>
+      {% for t in tasks %}
+        <tr>
+          <td><a href="{{ url_for('view_card', card_id=t[1]) }}">{{ t[2] }}</a></td>
+          <td>{{ t[3] }}</td>
+          <td>{{ t[4] }}</td>
+          <td>{{ t[6] }}</td>
+          <td>{{ t[7] }}</td>
+          <td>
+            <form method="post" action="{{ url_for('workshop_task_status', task_id=t[0]) }}" class="d-inline">
+              <select name="status" onchange="this.form.submit()" class="form-select form-select-sm">
+                <option value="pending" {% if t[7]=='pending' %}selected{% endif %}>pending</option>
+                <option value="in_progress" {% if t[7]=='in_progress' %}selected{% endif %}>in_progress</option>
+                <option value="done" {% if t[7]=='done' %}selected{% endif %}>done</option>
+              </select>
+            </form>
+
+            <form method="post" action="{{ url_for('unassign_task', task_id=t[0]) }}" style="display:inline">
+              <button type="submit" class="btn btn-sm btn-danger ms-1">Remove</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6"><em>No tasks assigned yet.</em></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

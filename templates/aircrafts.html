@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Aircrafts</h2>
+    <a href="{{ url_for('new_aircraft') }}" class="btn btn-primary">Add Aircraft</a>
+  </div>
+  {% if aircrafts %}
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Matriculation</th>
+        <th>Type</th>
+        <th>Base</th>
+        <th>Notes</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in aircrafts %}
+      <tr>
+        <td>{{ a[1] }}</td>
+        <td>{{ a[2] or "" }}</td>
+        <td>{{ a[3] or "" }}</td>
+        <td>{{ a[4] or "" }}</td>
+        <td>
+          <a href="{{ url_for('edit_aircraft', aircraft_id=a[0]) }}" class="btn btn-sm btn-secondary">Edit</a>
+          <form action="{{ url_for('delete_aircraft', aircraft_id=a[0]) }}" method="POST" style="display:inline;">
+            <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this aircraft?')">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="alert alert-info">No aircrafts registered yet.</div>
+  {% endif %}
+</div>
+{% endblock %}
