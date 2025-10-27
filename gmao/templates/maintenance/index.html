@@ -1,0 +1,101 @@
+{% extends 'layout.html' %}
+{% block title %}Visites périodiques{% endblock %}
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-0">Visites et activités</h1>
+    <p class="text-muted mb-0">Suivi des VP et opérations de maintenance lourde.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createVisitModal">Programmer une visite</button>
+</div>
+{% endblock %}
+{% block page_content %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th>Nom</th>
+        <th>Aéronef</th>
+        <th>Type</th>
+        <th>Statut</th>
+        <th>Début</th>
+        <th>Fin</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for visit in visits %}
+        <tr>
+          <td>{{ visit.name }}</td>
+          <td>{{ visit.aircraft.tail_number }}</td>
+          <td>{{ visit.vp_type }}</td>
+          <td><span class="badge bg-secondary">{{ visit.status }}</span></td>
+          <td>{{ visit.start_date.strftime('%d/%m/%Y') }}</td>
+          <td>{% if visit.end_date %}{{ visit.end_date.strftime('%d/%m/%Y') }}{% else %}—{% endif %}</td>
+          <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('maintenance.detail', visit_id=visit.id) }}">Détails</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="modal fade" id="createVisitModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('maintenance.create') }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Nouvelle visite</h5>
+          <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nom</label>
+            <input class="form-control" name="name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Aéronef</label>
+            <select class="form-select" name="aircraft_id" required>
+              {% for aircraft in aircrafts %}
+                <option value="{{ aircraft.id }}">{{ aircraft.tail_number }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Type VP</label>
+            <select class="form-select" name="vp_type" required>
+              {% for option in ['A','B','C','D','Inspection spéciale'] %}
+                <option value="{{ option }}">{{ option }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Début</label>
+              <input class="form-control" type="date" name="start_date" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Fin prévisionnelle</label>
+              <input class="form-control" type="date" name="end_date">
+            </div>
+          </div>
+          <div class="mb-3 mt-2">
+            <label class="form-label">Statut</label>
+            <select class="form-select" name="status">
+              <option value="planned">Planifiée</option>
+              <option value="ongoing">En cours</option>
+              <option value="completed">Terminée</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Annuler</button>
+          <button class="btn btn-primary" type="submit">Créer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

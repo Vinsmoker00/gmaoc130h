@@ -1,0 +1,71 @@
+{% extends 'layout.html' %}
+{% block title %}{{ aircraft.tail_number }} - Fiche aéronef{% endblock %}
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ aircraft.tail_number }}</h1>
+    <p class="text-muted mb-0">{{ aircraft.aircraft_type }} · {{ aircraft.location or 'Position inconnue' }}</p>
+  </div>
+  <a class="btn btn-secondary" href="{{ url_for('aircrafts.index') }}">Retour flotte</a>
+</div>
+{% endblock %}
+{% block page_content %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Statut opérationnel</h2>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('aircrafts.update', aircraft_id=aircraft.id) }}">
+          <div class="mb-3">
+            <label class="form-label">Position</label>
+            <input class="form-control" name="location" value="{{ aircraft.location }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Statut</label>
+            <select class="form-select" name="status">
+              {% for value, label in [('available','Disponible'),('in maintenance','En maintenance'),('awaiting inspection','En attente inspection')] %}
+                <option value="{{ value }}" {% if aircraft.status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" rows="4" name="notes">{{ aircraft.notes }}</textarea>
+          </div>
+          <button class="btn btn-primary" type="submit">Mettre à jour</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-between">
+        <h2 class="h5 mb-0">Visites de maintenance</h2>
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('maintenance.index') }}">Planifier</a>
+      </div>
+      <div class="card-body">
+        {% if visits %}
+          <div class="timeline">
+            {% for visit in visits %}
+              <div class="timeline-item mb-3">
+                <div class="d-flex justify-content-between">
+                  <strong>{{ visit.name }}</strong>
+                  <span class="badge bg-secondary">{{ visit.status }}</span>
+                </div>
+                <div class="text-muted small">{{ visit.vp_type }} · {{ visit.start_date.strftime('%d/%m/%Y') }} — {% if visit.end_date %}{{ visit.end_date.strftime('%d/%m/%Y') }}{% else %}en cours{% endif %}</div>
+                <div class="mt-2">
+                  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('maintenance.detail', visit_id=visit.id) }}">Voir la visite</a>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">Aucune visite enregistrée.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

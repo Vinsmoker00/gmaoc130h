@@ -1,0 +1,125 @@
+{% extends 'layout.html' %}
+{% block title %}{{ material.designation }} - Matériel{% endblock %}
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ material.designation }}</h1>
+    <p class="text-muted mb-0">PN {{ material.part_number or 'N/A' }} · Catégorie {{ material.category }}</p>
+  </div>
+  <a class="btn btn-secondary" href="{{ url_for('materials.index') }}">Retour</a>
+</div>
+{% endblock %}
+{% block page_content %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Données logistiques</h2>
+      </div>
+      <div class="card-body">
+        <ul class="list-unstyled mb-4">
+          <li><strong>NSN:</strong> {{ material.nsn or '—' }}</li>
+          <li><strong>NIIN:</strong> {{ material.niin or '—' }}</li>
+          <li><strong>FSC:</strong> {{ material.fsc or '—' }}</li>
+          <li><strong>Cage code:</strong> {{ material.cage_code or '—' }}</li>
+          <li><strong>DA référence:</strong> {{ material.da_reference or '—' }} ({{ material.da_status or '—' }})</li>
+          <li><strong>Contrat:</strong> {{ material.contract_type or '—' }}</li>
+        </ul>
+        <form method="post" action="{{ url_for('materials.update', material_id=material.id) }}">
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Dotation</label>
+              <input class="form-control" type="number" name="dotation" value="{{ material.dotation }}">
+            </div>
+            <div class="col">
+              <label class="form-label">Stock</label>
+              <input class="form-control" type="number" name="stock" value="{{ material.stock }}">
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col">
+              <label class="form-label">Avionnée</label>
+              <input class="form-control" type="number" name="avionnee" value="{{ material.avionnee }}">
+            </div>
+            <div class="col">
+              <label class="form-label">Indispo attente réparation</label>
+              <input class="form-control" type="number" name="unavailable_for_repair" value="{{ material.unavailable_for_repair }}">
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col">
+              <label class="form-label">En réparation</label>
+              <input class="form-control" type="number" name="in_repair" value="{{ material.in_repair }}">
+            </div>
+            <div class="col">
+              <label class="form-label">Litige</label>
+              <input class="form-control" type="number" name="litigation" value="{{ material.litigation }}">
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col">
+              <label class="form-label">Réforme</label>
+              <input class="form-control" type="number" name="scrapped" value="{{ material.scrapped }}">
+            </div>
+            <div class="col">
+              <label class="form-label">Consommation annuelle</label>
+              <input class="form-control" type="number" name="annual_consumption" value="{{ material.annual_consumption }}">
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col">
+              <label class="form-label">Stock consommable</label>
+              <input class="form-control" type="number" name="consumable_stock" value="{{ material.consumable_stock }}">
+            </div>
+            <div class="col">
+              <label class="form-label">Dotation consommable</label>
+              <input class="form-control" type="number" name="consumable_dotation" value="{{ material.consumable_dotation }}">
+            </div>
+          </div>
+          <div class="mb-3 mt-2">
+            <label class="form-label">Type consommable</label>
+            <input class="form-control" name="consumable_type" value="{{ material.consumable_type }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Contrat</label>
+            <input class="form-control" name="contract_type" value="{{ material.contract_type }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">DA statut</label>
+            <input class="form-control" name="da_status" value="{{ material.da_status }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">DA référence</label>
+            <input class="form-control" name="da_reference" value="{{ material.da_reference }}">
+          </div>
+          <button class="btn btn-primary" type="submit">Sauvegarder</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Besoins par tâches</h2>
+      </div>
+      <div class="card-body">
+        {% if requirements %}
+          <ul class="list-group list-group-flush">
+            {% for req in requirements %}
+              <li class="list-group-item">
+                <div class="d-flex justify-content-between">
+                  <span>{{ req.task.visit.name }} · {{ req.task.name }}</span>
+                  <span class="badge bg-primary">{{ req.quantity }}</span>
+                </div>
+                <small class="text-muted">Atelier {{ req.task.workshop.name if req.task.workshop else 'N/A' }}</small>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">Pas de besoin en cours.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
