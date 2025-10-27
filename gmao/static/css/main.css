@@ -1,0 +1,23 @@
+body {
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+.table thead th {
+  white-space: nowrap;
+}
+
+.badge {
+  text-transform: capitalize;
+}
+
+.card {
+  border: none;
+}
+
+.card-header {
+  border-bottom: 0;
+}
+
+.navbar .nav-link.active {
+  font-weight: 600;
+}

@@ -1,0 +1,111 @@
+{% extends 'layout.html' %}
+{% block title %}Tableau de bord - GMAO C-130H{% endblock %}
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 mb-0">Tableau de bord</h1>
+    <p class="text-muted mb-0">Vue d'ensemble des opérations de maintenance.</p>
+  </div>
+</div>
+{% endblock %}
+{% block page_content %}
+<div class="row g-3">
+  <div class="col-md-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="text-muted">Flotte suivie</h6>
+        <h2 class="fw-bold">{{ aircraft_total }}</h2>
+        <p class="text-muted small mb-0">Nombre total d'aéronefs C-130H.</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="text-muted">Visites en cours</h6>
+        <h2 class="fw-bold">{{ ongoing_visits|length }}</h2>
+        <p class="text-muted small mb-0">Maintenance planifiée ou en cours d'exécution.</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="text-muted">Tâches ouvertes</h6>
+        <h2 class="fw-bold">{{ pending_tasks }}</h2>
+        <p class="text-muted small mb-0">Comprend les interruptions signalées.</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="text-muted">Techniciens disponibles</h6>
+        <h2 class="fw-bold">{{ available_personnel }}</h2>
+        <p class="text-muted small mb-0">Personnel déclaré "on-site" aujourd'hui.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row g-3 mt-1">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Visites périodiques actives</h2>
+      </div>
+      <div class="card-body">
+        {% if ongoing_visits %}
+          <ul class="list-group list-group-flush">
+            {% for visit in ongoing_visits %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <h3 class="h6 mb-0">{{ visit.name }} · {{ visit.aircraft.tail_number }}</h3>
+                  <small class="text-muted">{{ visit.vp_type }} · {{ visit.status }} · Début {{ visit.start_date.strftime('%d/%m/%Y') }}</small>
+                </div>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('maintenance.detail', visit_id=visit.id) }}">Détails</a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">Aucune visite en cours.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Matériels critiques</h2>
+      </div>
+      <div class="card-body">
+        {% if critical_materials %}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Désignation</th>
+                  <th>Catégorie</th>
+                  <th>Dotation</th>
+                  <th>Stock</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for material in critical_materials %}
+                  <tr>
+                    <td><a href="{{ url_for('materials.detail', material_id=material.id) }}">{{ material.designation }}</a></td>
+                    <td>{{ material.category }}</td>
+                    <td>{{ material.dotation }}</td>
+                    <td>{{ material.stock }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">Alerte stock vide.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'layout.html' %}
+{% block title %}Accueil - GMAO C-130H{% endblock %}
+{% block page_header %}
+<div class="mb-4">
+  <h1 class="h3 mb-1">Bienvenue dans la GMAO C-130H</h1>
+  <p class="text-muted mb-0">Accédez rapidement aux applications métiers.</p>
+</div>
+{% endblock %}
+{% block page_content %}
+<div class="row g-3">
+  {% for label, description, endpoint in [
+    ('Gestion flotte', 'Suivi du statut des 15 aéronefs', 'aircrafts.index'),
+    ('Matériel', 'Approvisionnement et disponibilité du stock critique', 'materials.index'),
+    ('Ateliers', 'Ressources et charges de travail par atelier', 'workshops.index'),
+    ('Personnel', 'Affectations et disponibilités', 'personnel.index'),
+    ('Visites périodiques', 'Suivi des VP en cours et programmées', 'maintenance.index'),
+    ('Archive technique', 'Bibliothèque des job cards et documents', 'archive.index'),
+    ('Prévisions', 'Planification des besoins en matériel', 'analytics.predictions'),
+  ] %}
+    <div class="col-md-4">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <h2 class="h5">{{ label }}</h2>
+          <p class="text-muted">{{ description }}</p>
+          <a class="btn btn-primary" href="{{ url_for(endpoint) }}">Ouvrir</a>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
