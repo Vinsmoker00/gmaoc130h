@@ -26,6 +26,9 @@ def create_app(config_class: Optional[type] = None) -> Flask:
     with app.app_context():
         db.create_all()
         ensure_seed_data()
+        from .utils.seed import populate_demo_data
+
+        populate_demo_data(skip_if_exists=True)
 
     register_blueprints(app)
     register_cli(app)
