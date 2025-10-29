@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from random import choice, randint
 
 from flask import current_app
 
@@ -20,6 +19,7 @@ from ..models import (
     User,
     Workshop,
 )
+from .demo_data import AIRCRAFT_DATA, MATERIAL_DATA, PERSONNEL_DATA, generate_visit_schedule
 
 
 def register_seed_commands(app):
@@ -72,56 +72,81 @@ def register_seed_commands(app):
             engineers.append(engineer)
 
         technicians = []
-        for idx in range(1, 11):
-            workshop = choice(list(workshops.values()))
-            tech = User(
-                username=f"tech{idx}",
-                full_name=f"Technician {idx}",
-                rank="SGT",
+        for record in PERSONNEL_DATA:
+            workshop = workshops.get(record["Atelier"])
+            user = User(
+                username=record["Matricule"].lower(),
+                full_name=f"{record['Prénom']} {record['Nom']}",
+                rank=record["Grade"],
                 role=technician_role,
                 workshop=workshop,
             )
-            tech.set_password("password")
-            db.session.add(tech)
-            technicians.append(tech)
+            user.set_password("password")
+            db.session.add(user)
+            technicians.append(user)
 
         db.session.flush()
 
+        status_duration = {
+            "repos": 2,
+            "congé": 10,
+            "malade": 7,
+            "permanence": None,
+            "perma": None,
+            "en site": None,
+            "autres": None,
+        }
+
+        for idx, technician in enumerate(technicians):
+            record = PERSONNEL_DATA[idx]
+            status_label = record["Status"]
+            start_offset = idx % 21
+            start = date.today() - timedelta(days=start_offset)
+            duration = status_duration.get(status_label)
+            end = start + timedelta(days=duration) if duration else None
+            status = PersonnelStatus(
+                personnel=technician,
+                status=status_label,
+                details=f"Situation familiale: {record['Situation Familiale']}",
+                start_date=start,
+                end_date=end,
+            )
+            db.session.add(status)
+
         aircraft_list = []
-        for idx in range(1, 16):
+        for record in AIRCRAFT_DATA:
             aircraft = Aircraft(
-                tail_number=f"C130-{idx:02d}",
-                location=choice(["BASE A", "BASE B", "BASE C"]),
-                status=choice(["available", "in maintenance", "awaiting inspection"]),
+                tail_number=record["Matricule"],
+                aircraft_type=record["Type"],
+                location=record["Position"],
+                status=record["Statut"],
+                notes="Flotte RMAF C-130H",
             )
             db.session.add(aircraft)
             aircraft_list.append(aircraft)
 
         materials = []
-        categories = ["reparable", "consommable", "outillage", "banc d'essai"]
-        for idx in range(1, 51):
-            category = choice(categories)
+        for record in MATERIAL_DATA:
+            designation = record["Designation"]
+            category = "hydraulique" if "VALVE" in designation else "instrumentation"
             material = Material(
-                designation=f"Component {idx}",
-                part_number=f"PN-{idx:04d}",
-                serial_number=f"SN-{idx:05d}",
+                designation=designation,
+                part_number=record["PN"],
+                serial_number=record["SN"],
                 category=category,
-                dotation=randint(1, 5),
-                avionnee=randint(0, 4),
-                stock=randint(0, 10),
-                unavailable_for_repair=randint(0, 3),
-                in_repair=randint(0, 3),
-                litigation=randint(0, 1),
-                scrapped=randint(0, 1),
-                warranty=choice([True, False]),
-                contract_type=choice(["cadre", "ferme", ""],),
-                per_aircraft=randint(1, 4),
-                annual_consumption=randint(5, 40),
-                da_reference=f"DA-{idx:04d}",
-                da_status=choice(["en cours", "livre", "en retard"]),
-                consumable_stock=randint(0, 30),
-                consumable_dotation=randint(0, 10),
-                consumable_type=choice(["RCA", "RCB", ""]),
+                dotation=int(record["dotation"] or 0),
+                avionnee=int(record["avionne"] or 0),
+                stock=int(record["stock"] or 0),
+                unavailable_for_repair=int(record["indispo att rpn"] or 0),
+                in_repair=int(record["en rpn"] or 0),
+                litigation=int(record["litige"] or 0),
+                scrapped=int(record["reforme"] or 0),
+                warranty=False,
+                contract_type="cadre" if "REG" in record["PN"] else "ferme",
+                per_aircraft=1,
+                annual_consumption=int(record["consommation annuelle"] or 0),
+                da_reference=record["DA"],
+                da_status=record["status DA"],
             )
             materials.append(material)
             db.session.add(material)
@@ -138,51 +163,55 @@ def register_seed_commands(app):
             db.session.add(snapshot)
 
         visits = []
-        for idx in range(1, 6):
-            aircraft = choice(aircraft_list)
-            start = date.today() - timedelta(days=idx * 7)
+        visit_records = generate_visit_schedule(100)
+        aircraft_by_tail = {aircraft.tail_number: aircraft for aircraft in aircraft_list}
+        for record in visit_records:
+            aircraft = aircraft_by_tail[record["aircraft"]]
             visit = MaintenanceVisit(
-                name=f"VP-{idx:02d}",
+                name=record["name"],
                 aircraft=aircraft,
-                vp_type=choice(["A", "B", "C", "D"]),
-                status=choice(["planned", "ongoing", "completed"]),
-                start_date=start,
-                end_date=start + timedelta(days=randint(7, 21)),
-                description="Periodic maintenance visit",
+                vp_type=record["vp_type"],
+                status=record["status"],
+                start_date=record["start_date"],
+                end_date=record["end_date"],
+                description=f"Programme {record['vp_type']} de la flotte RMAF",
             )
             db.session.add(visit)
             visits.append(visit)
 
         db.session.flush()
 
-        for visit in visits:
-            for idx in range(1, 6):
+        task_templates = [
+            ("Inspection structure", "pending"),
+            ("Tests moteurs", "in_progress"),
+            ("Validation documentation", "completed"),
+        ]
+        workshop_cycle = list(workshops.values())
+
+        for visit_idx, visit in enumerate(visits):
+            for task_idx, (task_name, base_status) in enumerate(task_templates):
+                task_status = base_status
+                if visit.status == "ongoing" and task_idx == 0:
+                    task_status = "ongoing"
                 task = MaintenanceTask(
                     visit=visit,
-                    workshop=choice(list(workshops.values())),
-                    lead=choice(technicians),
-                    name=f"Task {visit.name}-{idx}",
-                    status=choice(["pending", "in_progress", "completed"]),
-                    estimated_hours=randint(2, 12),
+                    workshop=workshop_cycle[(visit_idx + task_idx) % len(workshop_cycle)],
+                    lead=technicians[(visit_idx + task_idx) % len(technicians)],
+                    name=f"{task_name} {visit.vp_type}",
+                    status=task_status,
+                    estimated_hours=6 + task_idx * 3,
                 )
                 db.session.add(task)
-                for _ in range(2):
+
+                for requirement_idx in range(2):
+                    material = materials[(visit_idx + requirement_idx + task_idx) % len(materials)]
                     requirement = MaterialRequirement(
                         task=task,
-                        material=choice(materials),
-                        quantity=randint(1, 3),
-                        fulfilled=choice([True, False]),
+                        material=material,
+                        quantity=1 + (task_idx + requirement_idx) % 3,
+                        fulfilled=task_status == "completed",
                     )
                     db.session.add(requirement)
-
-        for tech in technicians:
-            status = PersonnelStatus(
-                personnel=tech,
-                status=choice(["on-site", "day-off", "holidays", "sick"]),
-                start_date=date.today() - timedelta(days=randint(0, 3)),
-                end_date=date.today() + timedelta(days=randint(0, 3)),
-            )
-            db.session.add(status)
 
         for idx in range(1, 11):
             job_card = JobCard(
