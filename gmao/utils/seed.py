@@ -202,6 +202,21 @@ def _ensure_technicians(roles: Dict[str, Role], workshops: Dict[str, Workshop]) 
             db.session.flush()
         technicians.append(technician)
     return technicians
+            engineers.append(engineer)
+
+        technicians = []
+        for record in PERSONNEL_DATA:
+            workshop = workshops.get(record["Atelier"])
+            user = User(
+                username=record["Matricule"].lower(),
+                full_name=f"{record['Prénom']} {record['Nom']}",
+                rank=record["Grade"],
+                role=technician_role,
+                workshop=workshop,
+            )
+            user.set_password("password")
+            db.session.add(user)
+            technicians.append(user)
 
 
 def _ensure_personnel_statuses(technicians: Iterable[User]) -> None:
@@ -245,6 +260,36 @@ def _ensure_aircraft() -> List[Aircraft]:
         if aircraft is None:
             aircraft = Aircraft(
                 tail_number=tail_number,
+        status_duration = {
+            "repos": 2,
+            "congé": 10,
+            "malade": 7,
+            "permanence": None,
+            "perma": None,
+            "en site": None,
+            "autres": None,
+        }
+
+        for idx, technician in enumerate(technicians):
+            record = PERSONNEL_DATA[idx]
+            status_label = record["Status"]
+            start_offset = idx % 21
+            start = date.today() - timedelta(days=start_offset)
+            duration = status_duration.get(status_label)
+            end = start + timedelta(days=duration) if duration else None
+            status = PersonnelStatus(
+                personnel=technician,
+                status=status_label,
+                details=f"Situation familiale: {record['Situation Familiale']}",
+                start_date=start,
+                end_date=end,
+            )
+            db.session.add(status)
+
+        aircraft_list = []
+        for record in AIRCRAFT_DATA:
+            aircraft = Aircraft(
+                tail_number=record["Matricule"],
                 aircraft_type=record["Type"],
                 location=record["Position"],
                 status=record["Statut"],
@@ -263,12 +308,16 @@ def _ensure_materials() -> List[Material]:
         serial = record["SN"]
         material = Material.query.filter_by(part_number=part_number, serial_number=serial).first()
         if material is None:
+        materials = []
+        for record in MATERIAL_DATA:
             designation = record["Designation"]
             category = "hydraulique" if "VALVE" in designation else "instrumentation"
             material = Material(
                 designation=designation,
                 part_number=part_number,
                 serial_number=serial,
+                part_number=record["PN"],
+                serial_number=record["SN"],
                 category=category,
                 dotation=int(record["dotation"] or 0),
                 avionnee=int(record["avionne"] or 0),
@@ -279,6 +328,7 @@ def _ensure_materials() -> List[Material]:
                 scrapped=int(record["reforme"] or 0),
                 warranty=False,
                 contract_type="cadre" if "REG" in part_number else "ferme",
+                contract_type="cadre" if "REG" in record["PN"] else "ferme",
                 per_aircraft=1,
                 annual_consumption=int(record["consommation annuelle"] or 0),
                 da_reference=record["DA"],
@@ -302,6 +352,22 @@ def _ensure_inventory_snapshots(materials: Iterable[Material]) -> None:
             )
             db.session.add(snapshot)
 
+        visits = []
+        visit_records = generate_visit_schedule(100)
+        aircraft_by_tail = {aircraft.tail_number: aircraft for aircraft in aircraft_list}
+        for record in visit_records:
+            aircraft = aircraft_by_tail[record["aircraft"]]
+            visit = MaintenanceVisit(
+                name=record["name"],
+                aircraft=aircraft,
+                vp_type=record["vp_type"],
+                status=record["status"],
+                start_date=record["start_date"],
+                end_date=record["end_date"],
+                description=f"Programme {record['vp_type']} de la flotte RMAF",
+            )
+            db.session.add(visit)
+            visits.append(visit)
 
 def _create_visits(aircraft: List[Aircraft]) -> List[MaintenanceVisit]:
     visit_records = generate_visit_schedule(100)
@@ -323,6 +389,47 @@ def _create_visits(aircraft: List[Aircraft]) -> List[MaintenanceVisit]:
     db.session.flush()
     return visits
 
+        task_templates = [
+            ("Inspection structure", "pending"),
+            ("Tests moteurs", "in_progress"),
+            ("Validation documentation", "completed"),
+        ]
+        workshop_cycle = list(workshops.values())
+
+        for visit_idx, visit in enumerate(visits):
+            for task_idx, (task_name, base_status) in enumerate(task_templates):
+                task_status = base_status
+                if visit.status == "ongoing" and task_idx == 0:
+                    task_status = "ongoing"
+                task = MaintenanceTask(
+                    visit=visit,
+                    workshop=workshop_cycle[(visit_idx + task_idx) % len(workshop_cycle)],
+                    lead=technicians[(visit_idx + task_idx) % len(technicians)],
+                    name=f"{task_name} {visit.vp_type}",
+                    status=task_status,
+                    estimated_hours=6 + task_idx * 3,
+                )
+                db.session.add(task)
+
+                for requirement_idx in range(2):
+                    material = materials[(visit_idx + requirement_idx + task_idx) % len(materials)]
+                    requirement = MaterialRequirement(
+                        task=task,
+                        material=material,
+                        quantity=1 + (task_idx + requirement_idx) % 3,
+                        fulfilled=task_status == "completed",
+                    )
+                    db.session.add(requirement)
+
+        for idx in range(1, 11):
+            job_card = JobCard(
+                card_number=f"JC-{idx:04d}",
+                title=f"Maintenance Card {idx}",
+                revision="A",
+                summary="Standard maintenance procedure",
+                content="Detailed steps for the maintenance activity.",
+            )
+            db.session.add(job_card)
 
 def _create_tasks(
     visits: List[MaintenanceVisit],
