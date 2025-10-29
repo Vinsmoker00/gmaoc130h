@@ -202,7 +202,7 @@ def _ensure_technicians(roles: Dict[str, Role], workshops: Dict[str, Workshop]) 
             db.session.flush()
         technicians.append(technician)
     return technicians
-            engineers.append(engineer)
+        engineers.append(engineer)
 
         technicians = []
         for record in PERSONNEL_DATA:
