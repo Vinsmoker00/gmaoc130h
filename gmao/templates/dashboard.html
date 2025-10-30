@@ -48,6 +48,40 @@
   </div>
 </div>
 <div class="row g-3 mt-1">
+  <div class="col-xl-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Répartition des tâches</h2>
+      </div>
+      <div class="card-body">
+        <canvas id="taskStatusChart" aria-label="Répartition des tâches" role="img"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-8">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Progression des visites</h2>
+      </div>
+      <div class="card-body">
+        <canvas id="visitProgressChart" aria-label="Progression des visites" role="img"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Dotations vs stocks critiques</h2>
+      </div>
+      <div class="card-body">
+        <canvas id="materialShortageChart" aria-label="Dotations et stocks critiques" role="img"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row g-3 mt-1">
   <div class="col-lg-6">
     <div class="card shadow-sm">
       <div class="card-header bg-white">
@@ -108,4 +142,104 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-w3I2heMHDL/95B2S6rH9WqCqbRRkCIN19GHFYDWhH4UNYK+zZ3FdPFOf7tsm6P76" crossorigin="anonymous"></script>
+  <script>
+    const chartPalette = {
+      primary: getComputedStyle(document.documentElement).getPropertyValue('--bs-primary') || '#0d6efd',
+      success: getComputedStyle(document.documentElement).getPropertyValue('--bs-success') || '#198754',
+      warning: getComputedStyle(document.documentElement).getPropertyValue('--bs-warning') || '#ffc107',
+      danger: getComputedStyle(document.documentElement).getPropertyValue('--bs-danger') || '#dc3545',
+      info: getComputedStyle(document.documentElement).getPropertyValue('--bs-info') || '#0dcaf0'
+    };
+
+    const taskStatusConfig = {{ task_status_chart|tojson }};
+    const visitProgressConfig = {{ visit_progress_chart|tojson }};
+    const materialShortageConfig = {{ material_shortages_chart|tojson }};
+
+    const taskStatusCanvas = document.getElementById('taskStatusChart');
+    if (taskStatusCanvas && taskStatusConfig.labels.length) {
+      const colors = [chartPalette.primary, chartPalette.success, chartPalette.warning, chartPalette.info, chartPalette.danger];
+      const backgroundColors = taskStatusConfig.labels.map((_, idx) => colors[idx % colors.length]);
+      new Chart(taskStatusCanvas, {
+        type: 'pie',
+        data: {
+          labels: taskStatusConfig.labels,
+          datasets: taskStatusConfig.datasets.map(dataset => ({
+            ...dataset,
+            backgroundColor: backgroundColors,
+            borderWidth: 0
+          }))
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+    }
+
+    const visitProgressCanvas = document.getElementById('visitProgressChart');
+    if (visitProgressCanvas) {
+      new Chart(visitProgressCanvas, {
+        type: 'line',
+        data: {
+          labels: visitProgressConfig.labels,
+          datasets: visitProgressConfig.datasets.map((dataset, index) => ({
+            ...dataset,
+            tension: 0.3,
+            borderColor: index === 0 ? chartPalette.primary : chartPalette.success,
+            backgroundColor: index === 0 ? chartPalette.primary : chartPalette.success,
+            fill: false,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }))
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              precision: 0
+            }
+          }
+        }
+      });
+    }
+
+    const materialShortageCanvas = document.getElementById('materialShortageChart');
+    if (materialShortageCanvas) {
+      new Chart(materialShortageCanvas, {
+        type: 'bar',
+        data: {
+          labels: materialShortageConfig.labels,
+          datasets: materialShortageConfig.datasets.map((dataset, index) => ({
+            ...dataset,
+            backgroundColor: index === 0 ? chartPalette.warning : chartPalette.danger,
+            borderRadius: 6,
+            maxBarThickness: 28
+          }))
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              precision: 0
+            }
+          },
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+    }
+  </script>
 {% endblock %}
