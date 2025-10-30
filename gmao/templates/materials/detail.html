@@ -17,15 +17,48 @@
         <h2 class="h5 mb-0">Données logistiques</h2>
       </div>
       <div class="card-body">
-        <ul class="list-unstyled mb-4">
-          <li><strong>NSN:</strong> {{ material.nsn or '—' }}</li>
-          <li><strong>NIIN:</strong> {{ material.niin or '—' }}</li>
-          <li><strong>FSC:</strong> {{ material.fsc or '—' }}</li>
-          <li><strong>Cage code:</strong> {{ material.cage_code or '—' }}</li>
-          <li><strong>DA référence:</strong> {{ material.da_reference or '—' }} ({{ material.da_status or '—' }})</li>
-          <li><strong>Contrat:</strong> {{ material.contract_type or '—' }}</li>
-        </ul>
         <form method="post" action="{{ url_for('materials.update', material_id=material.id) }}">
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">NSN</label>
+              <input class="form-control" name="nsn" value="{{ material.nsn or '' }}" maxlength="30" placeholder="1234-00-123-4567">
+              <div class="form-text">13 caractères, format classique 4-2-3-4.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">NIIN</label>
+              <input class="form-control" name="niin" value="{{ material.niin or '' }}" maxlength="30" placeholder="00-123-4567">
+              <div class="form-text">9 chiffres (y compris code pays) ou laissez vide.</div>
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">FSC</label>
+              <input class="form-control" name="fsc" value="{{ material.fsc or '' }}" maxlength="20" placeholder="1234">
+              <div class="form-text">4 chiffres pour la classe fédérale d'approvisionnement.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Code CAGE</label>
+              <input class="form-control" name="cage_code" value="{{ material.cage_code or '' }}" maxlength="30" placeholder="1A234">
+              <div class="form-text">5 caractères alphanumériques identifiant le fournisseur.</div>
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Référence DA</label>
+              <input class="form-control" name="da_reference" value="{{ material.da_reference or '' }}" maxlength="80" placeholder="DA-2024-00123">
+              <div class="form-text">Numéro de la demande d'achat (laisser vide pour supprimer).</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Statut DA</label>
+              <input class="form-control" name="da_status" value="{{ material.da_status or '' }}" maxlength="80" placeholder="En cours">
+              <div class="form-text">Ex. &laquo;&nbsp;En cours&nbsp;&raquo;, &laquo;&nbsp;Validé&nbsp;&raquo;, etc.</div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Type de contrat</label>
+            <input class="form-control" name="contract_type" value="{{ material.contract_type or '' }}" maxlength="50" placeholder="FMS / MCO">
+            <div class="form-text">Catégorie contractuelle (laisser vide si non applicable).</div>
+          </div>
           <div class="row g-2">
             <div class="col">
               <label class="form-label">Dotation</label>
@@ -78,19 +111,7 @@
           </div>
           <div class="mb-3 mt-2">
             <label class="form-label">Type consommable</label>
-            <input class="form-control" name="consumable_type" value="{{ material.consumable_type }}">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Contrat</label>
-            <input class="form-control" name="contract_type" value="{{ material.contract_type }}">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">DA statut</label>
-            <input class="form-control" name="da_status" value="{{ material.da_status }}">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">DA référence</label>
-            <input class="form-control" name="da_reference" value="{{ material.da_reference }}">
+            <input class="form-control" name="consumable_type" value="{{ material.consumable_type or '' }}">
           </div>
           <button class="btn btn-primary" type="submit">Sauvegarder</button>
         </form>

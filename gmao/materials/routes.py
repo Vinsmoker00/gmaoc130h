@@ -1,3 +1,5 @@
+from typing import Optional
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
@@ -75,9 +77,29 @@ def update(material_id: int):
     for field in fields:
         if field in request.form:
             setattr(material, field, int(request.form[field]))
-    material.da_status = request.form.get("da_status", material.da_status)
-    material.da_reference = request.form.get("da_reference", material.da_reference)
-    material.contract_type = request.form.get("contract_type", material.contract_type)
+
+    def cleaned_value(field_name: str) -> Optional[str]:
+        if field_name not in request.form:
+            return getattr(material, field_name)
+        value = request.form.get(field_name, "")
+        if value is None:
+            return getattr(material, field_name)
+        value = value.strip()
+        return value or None
+
+    string_fields = [
+        "nsn",
+        "niin",
+        "fsc",
+        "cage_code",
+        "da_status",
+        "da_reference",
+        "contract_type",
+        "consumable_type",
+    ]
+
+    for field in string_fields:
+        setattr(material, field, cleaned_value(field))
     db.session.commit()
     flash("Stock mis à jour", "success")
     return redirect(url_for("materials.detail", material_id=material_id))
