@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from flask import Flask
+from sqlalchemy import inspect, text
 
 from .config import BaseConfig
 from .extensions import db, login_manager
@@ -24,6 +25,7 @@ def create_app(config_class: Optional[type] = None) -> Flask:
     login_manager.init_app(app)
 
     with app.app_context():
+        apply_schema_upgrades()
         db.create_all()
         ensure_seed_data()
         from .utils.seed import populate_demo_data
@@ -81,6 +83,39 @@ def register_cli(app: Flask) -> None:
     from .utils.seed import register_seed_commands
 
     register_seed_commands(app)
+
+
+def apply_schema_upgrades() -> None:
+    inspector = inspect(db.engine)
+    table_names = inspector.get_table_names()
+    if "job_card_attachments" not in table_names:
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("job_card_attachments")}
+    statements = []
+    added_file_path = False
+
+    if "file_path" not in columns:
+        statements.append(
+            text("ALTER TABLE job_card_attachments ADD COLUMN file_path VARCHAR(512) NOT NULL DEFAULT '';")
+        )
+        added_file_path = True
+
+    if "mime_type" not in columns:
+        statements.append(text("ALTER TABLE job_card_attachments ADD COLUMN mime_type VARCHAR(120);"))
+
+    if not statements:
+        return
+
+    for statement in statements:
+        db.session.execute(statement)
+
+    if added_file_path:
+        db.session.execute(
+            text("UPDATE job_card_attachments SET file_path = filename WHERE file_path = '';"),
+        )
+
+    db.session.commit()
 
 
 def ensure_seed_data() -> None:
