@@ -146,7 +146,7 @@
 
 {% block extra_scripts %}
   {{ super() }}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-w3I2heMHDL/95B2S6rH9WqCqbRRkCIN19GHFYDWhH4UNYK+zZ3FdPFOf7tsm6P76" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-NrKB+u6Ts6AtkIhwPixiKTzgSKNblyhlk0Sohlgar9UHUBzai/sgnNNWWd291xqt" crossorigin="anonymous"></script>
   <script>
     const chartPalette = {
       primary: getComputedStyle(document.documentElement).getPropertyValue('--bs-primary') || '#0d6efd',
@@ -160,8 +160,45 @@
     const visitProgressConfig = {{ visit_progress_chart|tojson }};
     const materialShortageConfig = {{ material_shortages_chart|tojson }};
 
+    function showEmptyState(canvas, message) {
+      if (!canvas) {
+        return;
+      }
+      canvas.classList.add('d-none');
+      if (canvas.dataset.placeholderAdded === 'true') {
+        return;
+      }
+      const placeholder = document.createElement('div');
+      placeholder.className = 'text-muted text-center py-5';
+      placeholder.textContent = message;
+      canvas.parentElement?.appendChild(placeholder);
+      canvas.dataset.placeholderAdded = 'true';
+    }
+
+    function hasChartData(config) {
+      if (!config || !Array.isArray(config.datasets)) {
+        return false;
+      }
+      return config.datasets.some(dataset =>
+        Array.isArray(dataset.data) && dataset.data.some(value => Number(value) > 0)
+      );
+    }
+
+    function ensureChartData(canvas, config, emptyMessage) {
+      if (!canvas) {
+        return false;
+      }
+      const hasLabels = Array.isArray(config?.labels) && config.labels.length > 0;
+      if (!hasLabels || !hasChartData(config)) {
+        showEmptyState(canvas, emptyMessage);
+        return false;
+      }
+      canvas.classList.remove('d-none');
+      return true;
+    }
+
     const taskStatusCanvas = document.getElementById('taskStatusChart');
-    if (taskStatusCanvas && taskStatusConfig.labels.length) {
+    if (ensureChartData(taskStatusCanvas, taskStatusConfig, "Aucune tâche disponible pour afficher un graphique.")) {
       const colors = [chartPalette.primary, chartPalette.success, chartPalette.warning, chartPalette.info, chartPalette.danger];
       const backgroundColors = taskStatusConfig.labels.map((_, idx) => colors[idx % colors.length]);
       new Chart(taskStatusCanvas, {
@@ -185,7 +222,7 @@
     }
 
     const visitProgressCanvas = document.getElementById('visitProgressChart');
-    if (visitProgressCanvas) {
+    if (ensureChartData(visitProgressCanvas, visitProgressConfig, "Pas de visites planifiées sur les 6 derniers mois.")) {
       new Chart(visitProgressCanvas, {
         type: 'line',
         data: {
@@ -214,7 +251,7 @@
     }
 
     const materialShortageCanvas = document.getElementById('materialShortageChart');
-    if (materialShortageCanvas) {
+    if (ensureChartData(materialShortageCanvas, materialShortageConfig, "Aucune alerte de dotation à afficher.")) {
       new Chart(materialShortageCanvas, {
         type: 'bar',
         data: {
