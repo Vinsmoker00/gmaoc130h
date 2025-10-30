@@ -44,6 +44,7 @@ def create_app(config_class: Optional[type] = None) -> Flask:
                 ("Ateliers", "workshops.index"),
                 ("Personnel", "personnel.index"),
                 ("Visites", "maintenance.index"),
+                ("Gantt", "gantt.index"),
                 ("Archive", "archive.index"),
                 ("Prédictions", "analytics.predictions"),
             ]
@@ -62,6 +63,7 @@ def register_blueprints(app: Flask) -> None:
     from .maintenance.routes import bp as maintenance_bp
     from .archive.routes import bp as archive_bp
     from .analytics.routes import bp as analytics_bp
+    from .gantt.routes import bp as gantt_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -72,6 +74,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(maintenance_bp)
     app.register_blueprint(archive_bp)
     app.register_blueprint(analytics_bp)
+    app.register_blueprint(gantt_bp)
 
 
 def register_cli(app: Flask) -> None:

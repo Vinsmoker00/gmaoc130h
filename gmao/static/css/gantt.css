@@ -1,0 +1,55 @@
+.gantt-wrapper {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+}
+
+.gantt-sidebar {
+  flex: 0 0 220px;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  padding-right: 1rem;
+}
+
+.gantt-sidebar .gantt-task-meta {
+  margin-bottom: 1rem;
+}
+
+.gantt-sidebar .gantt-task-meta:last-child {
+  margin-bottom: 0;
+}
+
+.gantt-chart {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 480px;
+}
+
+.gantt-chart svg {
+  width: 100%;
+  height: auto;
+}
+
+.gantt-bar {
+  stroke-width: 1;
+  stroke: rgba(0, 0, 0, 0.1);
+}
+
+.gantt-bar.critical {
+  fill: rgba(220, 53, 69, 0.8);
+  stroke: rgba(220, 53, 69, 1);
+}
+
+.gantt-bar.standard {
+  fill: rgba(13, 110, 253, 0.6);
+  stroke: rgba(13, 110, 253, 1);
+}
+
+.gantt-axis line,
+.gantt-axis path {
+  stroke: rgba(0, 0, 0, 0.25);
+}
+
+.gantt-axis text {
+  font-size: 0.75rem;
+  fill: rgba(0, 0, 0, 0.6);
+}

@@ -1,0 +1,33 @@
+{% extends 'layout.html' %}
+{% block title %}Visites - Module Gantt{% endblock %}
+
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 mb-1">Planification Gantt des visites</h1>
+    <p class="text-muted mb-0">Sélectionnez une visite de maintenance pour visualiser la chronologie des tâches.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_content %}
+<div class="card shadow-sm">
+  <div class="card-body">
+    {% if visits %}
+      <div class="list-group">
+        {% for visit in visits %}
+          <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="{{ url_for('gantt.detail', visit_id=visit.id) }}">
+            <div>
+              <h2 class="h5 mb-1">{{ visit.name }}</h2>
+              <p class="mb-0 text-muted">Début : {{ visit.start_date.strftime('%d/%m/%Y') }}{% if visit.end_date %} • Fin : {{ visit.end_date.strftime('%d/%m/%Y') }}{% endif %}</p>
+            </div>
+            <span class="badge bg-secondary">{{ visit.vp_type }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="mb-0 text-muted">Aucune visite n'est actuellement planifiée.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
