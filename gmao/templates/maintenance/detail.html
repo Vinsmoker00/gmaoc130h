@@ -36,8 +36,19 @@
       <div class="card-body">
         <form method="post" action="{{ url_for('maintenance.add_task', visit_id=visit.id) }}">
           <div class="mb-3">
-            <label class="form-label">Nom</label>
-            <input class="form-control" name="name" required>
+            <label class="form-label">Job card</label>
+            <select class="form-select" name="job_card_id">
+              <option value="">Sans job card</option>
+              {% for card in job_cards %}
+                <option value="{{ card.id }}">{{ card.card_number }} · {{ card.title }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">Sélectionnez une job card existante ou décrivez la tâche librement.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description libre</label>
+            <textarea class="form-control" name="description" rows="2" placeholder="Détail de la tâche ad hoc"></textarea>
+            <div class="form-text">Obligatoire si aucune job card n'est choisie.</div>
           </div>
           <div class="mb-3">
             <label class="form-label">Atelier</label>
@@ -84,7 +95,8 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th>Nom</th>
+              <th>Tâche</th>
+              <th>Job card</th>
               <th>Atelier</th>
               <th>Chef</th>
               <th>Statut</th>
@@ -97,6 +109,14 @@
             {% for task in visit.tasks %}
               <tr>
                 <td>{{ task.name }}</td>
+                <td>
+                  {% if task.job_card %}
+                    <div class="fw-semibold">{{ task.job_card.card_number }}</div>
+                    <div class="text-muted small">{{ task.job_card.title }}</div>
+                  {% else %}
+                    <span class="badge bg-light text-dark">Ad hoc</span>
+                  {% endif %}
+                </td>
                 <td>{{ task.workshop.name if task.workshop else '—' }}</td>
                 <td>{{ task.lead.full_name if task.lead else '—' }}</td>
                 <td><span class="badge bg-secondary">{{ task.status }}</span></td>
@@ -132,6 +152,15 @@
         <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
+        {% if task.job_card %}
+          <div class="alert alert-info d-flex justify-content-between align-items-start">
+            <div>
+              <div class="fw-semibold">Job card {{ task.job_card.card_number }}</div>
+              <div class="small">{{ task.job_card.title }}</div>
+            </div>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('archive.index', search=task.job_card.card_number) }}">Ouvrir l'archive</a>
+          </div>
+        {% endif %}
         <form class="mb-4" method="post" action="{{ url_for('maintenance.update_task_status', task_id=task.id) }}">
           <div class="row g-2">
             <div class="col-md-4">

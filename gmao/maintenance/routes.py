@@ -6,6 +6,7 @@ from flask_login import login_required
 from ..extensions import db
 from ..models import (
     Aircraft,
+    JobCard,
     MaintenanceTask,
     MaintenanceVisit,
     Material,
@@ -65,6 +66,7 @@ def detail(visit_id: int):
     personnel = User.query.order_by(User.rank.desc()).all()
     materials = Material.query.order_by(Material.designation).all()
     statuses = PersonnelStatus.query.filter_by(status="on-site").all()
+    job_cards = JobCard.query.order_by(JobCard.card_number).all()
     return render_template(
         "maintenance/detail.html",
         visit=visit,
@@ -72,6 +74,7 @@ def detail(visit_id: int):
         personnel=personnel,
         materials=materials,
         statuses=statuses,
+        job_cards=job_cards,
     )
 
 
@@ -79,19 +82,29 @@ def detail(visit_id: int):
 @login_required
 def add_task(visit_id: int):
     visit = MaintenanceVisit.query.get_or_404(visit_id)
-    name = request.form.get("name")
+    description = (request.form.get("description") or "").strip()
     workshop_id = request.form.get("workshop_id", type=int)
     lead_id = request.form.get("lead_id", type=int)
     estimated_hours = request.form.get("estimated_hours", type=float, default=0.0)
-    if not name:
-        flash("Le nom de la tâche est obligatoire", "danger")
+    job_card_id = request.form.get("job_card_id", type=int)
+    job_card = None
+    if job_card_id:
+        job_card = JobCard.query.get(job_card_id)
+        if job_card is None:
+            flash("Job card sélectionnée invalide", "danger")
+            return redirect(url_for("maintenance.detail", visit_id=visit.id))
+
+    task_name = description or (job_card.title if job_card else "")
+    if not task_name:
+        flash("Renseignez une description ou sélectionnez une job card.", "danger")
         return redirect(url_for("maintenance.detail", visit_id=visit.id))
 
     task = MaintenanceTask(
         visit=visit,
-        name=name,
+        name=task_name,
         workshop_id=workshop_id,
         lead_id=lead_id,
+        job_card_id=job_card.id if job_card else None,
         estimated_hours=estimated_hours,
         status=request.form.get("status", "pending"),
     )
