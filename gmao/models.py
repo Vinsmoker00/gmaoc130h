@@ -256,6 +256,8 @@ class JobCardAttachment(db.Model):
     job_card_id = db.Column(db.Integer, db.ForeignKey("job_cards.id"), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
     original_name = db.Column(db.String(255))
+    file_path = db.Column(db.String(512), nullable=False, server_default="")
+    mime_type = db.Column(db.String(120))
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     job_card = db.relationship("JobCard", back_populates="attachments")

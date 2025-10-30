@@ -33,15 +33,26 @@
           <td>{{ card.revision or '—' }}</td>
           <td>{{ card.created_at.strftime('%d/%m/%Y') }}</td>
           <td>
-            {% if card.attachments.count() %}
-              <ul class="list-unstyled mb-0">
-                {% for att in card.attachments %}
-                  <li>{{ att.filename }}</li>
+            {% set attachments = attachments_by_card.get(card.id, []) %}
+            {% if attachments %}
+              <ul class="list-unstyled mb-2 small">
+                {% for att in attachments %}
+                  <li>
+                    <a class="link-primary" href="{{ url_for('archive.download_attachment', attachment_id=att.id) }}">
+                      {{ att.original_name or att.filename }}
+                    </a>
+                    <span class="text-muted">· {{ att.uploaded_at.strftime('%d/%m/%Y') }}</span>
+                  </li>
                 {% endfor %}
               </ul>
             {% else %}
-              <span class="text-muted">Aucune</span>
+              <span class="text-muted d-block mb-2">Aucune</span>
             {% endif %}
+            <form class="input-group input-group-sm" method="post" action="{{ url_for('archive.add_attachment', card_id=card.id) }}" enctype="multipart/form-data">
+              <input class="form-control" type="file" name="attachment" accept="application/pdf" required>
+              <button class="btn btn-outline-primary" type="submit">Ajouter</button>
+            </form>
+            <div class="form-text">PDF uniquement</div>
           </td>
         </tr>
       {% endfor %}
