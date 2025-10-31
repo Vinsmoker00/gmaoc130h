@@ -25,10 +25,64 @@
           <dt class="col-5">Personnel engagé</dt>
           <dd class="col-7">{{ visit.active_personnel()|length }}</dd>
           <dt class="col-5">Tâches</dt>
-          <dd class="col-7">{{ visit.tasks.count() }}</dd>
+          <dd class="col-7">{{ tasks|length }}</dd>
+          <dt class="col-5">Périodicité</dt>
+          <dd class="col-7">{% if periodicity_months %}{{ periodicity_months }} mois{% else %}—{% endif %}</dd>
         </dl>
       </div>
     </div>
+    {% if package_codes %}
+    <div class="card shadow-sm mt-3">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0">Package SMP515</h2>
+        <form method="post" action="{{ url_for('maintenance.sync_package', visit_id=visit.id) }}">
+          <button class="btn btn-sm btn-outline-primary" type="submit">Synchroniser</button>
+        </form>
+      </div>
+      <div class="card-body">
+        <p class="mb-2">{{ package_status.completed }} terminées / {{ package_status.total }} prévues.</p>
+        {% if package_status.missing %}
+          <div class="alert alert-warning small">
+            Job cards absentes de l'archive : {{ package_status.missing|join(', ') }}
+          </div>
+        {% endif %}
+        <div class="table-responsive" style="max-height: 220px;">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Réf.</th>
+                <th>Titre</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in package_status.overview %}
+                <tr>
+                  <td class="fw-semibold">{{ item.code }}</td>
+                  <td>
+                    {% if item.job_card %}
+                      {{ item.job_card.title }}
+                    {% else %}
+                      <span class="text-muted">À compléter</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if item.status == 'completed' %}
+                      <span class="badge bg-success">Terminée</span>
+                    {% elif item.status == 'missing' %}
+                      <span class="badge bg-warning text-dark">À créer</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ item.status }}</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
     <div class="card shadow-sm mt-3">
       <div class="card-header bg-white">
         <h2 class="h5 mb-0">Nouvelle tâche</h2>
@@ -89,7 +143,7 @@
     <div class="card shadow-sm">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <h2 class="h5 mb-0">Tâches de la visite</h2>
-        <span class="badge bg-primary">{{ visit.tasks.count() }} tâches</span>
+        <span class="badge bg-primary">{{ tasks|length }} tâches</span>
       </div>
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -102,17 +156,21 @@
               <th>Statut</th>
               <th>Heures</th>
               <th>Matériel</th>
+              <th>Origine</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {% for task in visit.tasks %}
+            {% for task in tasks %}
               <tr>
                 <td>{{ task.name }}</td>
                 <td>
                   {% if task.job_card %}
                     <div class="fw-semibold">{{ task.job_card.card_number }}</div>
                     <div class="text-muted small">{{ task.job_card.title }}</div>
+                  {% elif task.package_code %}
+                    <div class="fw-semibold">{{ task.package_code }}</div>
+                    <div class="text-muted small">Job card à renseigner</div>
                   {% else %}
                     <span class="badge bg-light text-dark">Ad hoc</span>
                   {% endif %}
@@ -132,6 +190,13 @@
                     <span class="text-muted">—</span>
                   {% endif %}
                 </td>
+                <td>
+                  {% if task.is_package_item %}
+                    <span class="badge bg-info text-dark">Package</span>
+                  {% else %}
+                    <span class="badge bg-light text-dark">Complément</span>
+                  {% endif %}
+                </td>
                 <td class="text-end">
                   <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#taskModal{{ task.id }}">Mettre à jour</button>
                 </td>
@@ -139,11 +204,40 @@
             {% endfor %}
           </tbody>
         </table>
-      </div>
     </div>
   </div>
+  {% if material_totals %}
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-white">
+      <h2 class="h5 mb-0">Synthèse matériel</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Désignation</th>
+            <th>Package</th>
+            <th>Compléments</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in material_totals %}
+            <tr>
+              <td>{{ item.material.designation }}</td>
+              <td>{{ item.job_card_quantity }}</td>
+              <td>{{ item.additional_quantity }}</td>
+              <td>{{ item.job_card_quantity + item.additional_quantity }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 </div>
-{% for task in visit.tasks %}
+</div>
+{% for task in tasks %}
 <div class="modal fade" id="taskModal{{ task.id }}" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
