@@ -23,6 +23,7 @@
         <th>Révision</th>
         <th>Date</th>
         <th>Pièces jointes</th>
+        <th>Structure</th>
       </tr>
     </thead>
     <tbody>
@@ -53,6 +54,9 @@
               <button class="btn btn-outline-primary" type="submit">Ajouter</button>
             </form>
             <div class="form-text">PDF uniquement</div>
+          </td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('archive.card_detail', card_id=card.id) }}">Structure</a>
           </td>
         </tr>
       {% endfor %}

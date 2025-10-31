@@ -28,9 +28,6 @@ def create_app(config_class: Optional[type] = None) -> Flask:
         apply_schema_upgrades()
         db.create_all()
         ensure_seed_data()
-        from .utils.seed import populate_demo_data
-
-        populate_demo_data(skip_if_exists=True)
 
     register_blueprints(app)
     register_cli(app)
@@ -88,34 +85,54 @@ def register_cli(app: Flask) -> None:
 def apply_schema_upgrades() -> None:
     inspector = inspect(db.engine)
     table_names = inspector.get_table_names()
-    if "job_card_attachments" not in table_names:
-        return
+    executed_any_statement = False
 
-    columns = {column["name"] for column in inspector.get_columns("job_card_attachments")}
-    statements = []
-    added_file_path = False
+    if "job_card_attachments" in table_names:
+        columns = {column["name"] for column in inspector.get_columns("job_card_attachments")}
+        statements = []
+        added_file_path = False
 
-    if "file_path" not in columns:
-        statements.append(
-            text("ALTER TABLE job_card_attachments ADD COLUMN file_path VARCHAR(512) NOT NULL DEFAULT '';")
-        )
-        added_file_path = True
+        if "file_path" not in columns:
+            statements.append(
+                text(
+                    "ALTER TABLE job_card_attachments ADD COLUMN file_path VARCHAR(512) NOT NULL DEFAULT '';"
+                )
+            )
+            added_file_path = True
 
-    if "mime_type" not in columns:
-        statements.append(text("ALTER TABLE job_card_attachments ADD COLUMN mime_type VARCHAR(120);"))
+        if "mime_type" not in columns:
+            statements.append(text("ALTER TABLE job_card_attachments ADD COLUMN mime_type VARCHAR(120);"))
 
-    if not statements:
-        return
+        for statement in statements:
+            db.session.execute(statement)
+            executed_any_statement = True
 
-    for statement in statements:
-        db.session.execute(statement)
+        if added_file_path:
+            db.session.execute(
+                text("UPDATE job_card_attachments SET file_path = filename WHERE file_path = '';"),
+            )
+            executed_any_statement = True
 
-    if added_file_path:
-        db.session.execute(
-            text("UPDATE job_card_attachments SET file_path = filename WHERE file_path = '';"),
-        )
+    if "maintenance_tasks" in table_names:
+        columns = {column["name"] for column in inspector.get_columns("maintenance_tasks")}
+        statements = []
 
-    db.session.commit()
+        if "is_package_item" not in columns:
+            statements.append(
+                text(
+                    "ALTER TABLE maintenance_tasks ADD COLUMN is_package_item BOOLEAN NOT NULL DEFAULT 0;"
+                )
+            )
+
+        if "package_code" not in columns:
+            statements.append(text("ALTER TABLE maintenance_tasks ADD COLUMN package_code VARCHAR(80);"))
+
+        for statement in statements:
+            db.session.execute(statement)
+            executed_any_statement = True
+
+    if executed_any_statement:
+        db.session.commit()
 
 
 def ensure_seed_data() -> None:
