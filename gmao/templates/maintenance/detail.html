@@ -314,6 +314,35 @@
       </form>
     </div>
   </div>
+  {% if material_totals %}
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-white">
+      <h2 class="h5 mb-0">Synthèse matériel</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Désignation</th>
+            <th>Package</th>
+            <th>Compléments</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in material_totals %}
+            <tr>
+              <td>{{ item.material.designation }}</td>
+              <td>{{ item.job_card_quantity }}</td>
+              <td>{{ item.additional_quantity }}</td>
+              <td>{{ item.job_card_quantity + item.additional_quantity }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% for task in tasks %}
 <div class="modal fade" id="taskModal{{ task.id }}" tabindex="-1" aria-hidden="true">
