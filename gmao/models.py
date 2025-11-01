@@ -135,6 +135,12 @@ class Material(db.Model):
         cascade="all, delete-orphan",
         lazy="dynamic",
     )
+    job_card_links = db.relationship(
+        "JobCardMaterial",
+        back_populates="material",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Material {self.designation}>"
@@ -203,6 +209,8 @@ class MaintenanceTask(db.Model):
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
     interruption_reason = db.Column(db.String(255))
+    is_package_item = db.Column(db.Boolean, default=False)
+    package_code = db.Column(db.String(80))
 
     visit = db.relationship("MaintenanceVisit", back_populates="tasks")
     workshop = db.relationship("Workshop", back_populates="visits")
@@ -240,6 +248,27 @@ class JobCard(db.Model):
     content = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    paragraphs = db.relationship(
+        "JobCardParagraph",
+        back_populates="job_card",
+        cascade="all, delete-orphan",
+        order_by="JobCardParagraph.order_index",
+        lazy="joined",
+    )
+    steps = db.relationship(
+        "JobCardStep",
+        back_populates="job_card",
+        cascade="all, delete-orphan",
+        order_by="JobCardStep.order_index",
+        lazy="joined",
+    )
+    substeps = db.relationship(
+        "JobCardSubstep",
+        back_populates="job_card",
+        cascade="all, delete-orphan",
+        order_by="JobCardSubstep.order_index",
+        lazy="joined",
+    )
     attachments = db.relationship(
         "JobCardAttachment",
         back_populates="job_card",
@@ -247,6 +276,37 @@ class JobCard(db.Model):
         lazy="dynamic",
     )
     tasks = db.relationship("MaintenanceTask", back_populates="job_card", lazy="dynamic")
+    material_assignments = db.relationship(
+        "JobCardMaterial",
+        back_populates="job_card",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+
+    @property
+    def estimated_minutes(self) -> int:
+        paragraph_minutes = sum(paragraph.estimated_minutes for paragraph in self.paragraphs)
+        step_minutes = sum(step.estimated_minutes for step in self.steps)
+        substep_minutes = sum(substep.estimated_minutes for substep in self.substeps)
+        return paragraph_minutes + step_minutes + substep_minutes
+
+    @property
+    def estimated_hours(self) -> float:
+        return round(self.estimated_minutes / 60.0, 2) if self.estimated_minutes else 0.0
+
+    def root_steps(self):
+        return [step for step in self.steps if step.paragraph_id is None]
+
+    def material_summary(self):
+        summary = {}
+        for assignment in self.material_assignments:
+            if assignment.material_id not in summary:
+                summary[assignment.material_id] = {
+                    "material": assignment.material,
+                    "quantity": 0.0,
+                }
+            summary[assignment.material_id]["quantity"] += assignment.quantity or 0.0
+        return summary
 
 
 class JobCardAttachment(db.Model):
@@ -261,6 +321,105 @@ class JobCardAttachment(db.Model):
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     job_card = db.relationship("JobCard", back_populates="attachments")
+
+
+class JobCardParagraph(db.Model):
+    __tablename__ = "job_card_paragraphs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    job_card_id = db.Column(db.Integer, db.ForeignKey("job_cards.id"), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    order_index = db.Column(db.Integer, default=0)
+    workshop_id = db.Column(db.Integer, db.ForeignKey("workshops.id"))
+    estimated_minutes = db.Column(db.Integer, default=0)
+
+    job_card = db.relationship("JobCard", back_populates="paragraphs")
+    workshop = db.relationship("Workshop")
+    steps = db.relationship(
+        "JobCardStep",
+        back_populates="paragraph",
+        cascade="all, delete-orphan",
+        order_by="JobCardStep.order_index",
+        lazy="joined",
+    )
+    materials = db.relationship(
+        "JobCardMaterial",
+        back_populates="paragraph",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+
+
+class JobCardStep(db.Model):
+    __tablename__ = "job_card_steps"
+
+    id = db.Column(db.Integer, primary_key=True)
+    job_card_id = db.Column(db.Integer, db.ForeignKey("job_cards.id"), nullable=False)
+    paragraph_id = db.Column(db.Integer, db.ForeignKey("job_card_paragraphs.id"))
+    title = db.Column(db.String(255))
+    description = db.Column(db.Text, nullable=False)
+    order_index = db.Column(db.Integer, default=0)
+    workshop_id = db.Column(db.Integer, db.ForeignKey("workshops.id"))
+    estimated_minutes = db.Column(db.Integer, default=0)
+
+    job_card = db.relationship("JobCard", back_populates="steps")
+    paragraph = db.relationship("JobCardParagraph", back_populates="steps")
+    workshop = db.relationship("Workshop")
+    substeps = db.relationship(
+        "JobCardSubstep",
+        back_populates="step",
+        cascade="all, delete-orphan",
+        order_by="JobCardSubstep.order_index",
+        lazy="joined",
+    )
+    materials = db.relationship(
+        "JobCardMaterial",
+        back_populates="step",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+
+
+class JobCardSubstep(db.Model):
+    __tablename__ = "job_card_substeps"
+
+    id = db.Column(db.Integer, primary_key=True)
+    job_card_id = db.Column(db.Integer, db.ForeignKey("job_cards.id"), nullable=False)
+    step_id = db.Column(db.Integer, db.ForeignKey("job_card_steps.id"), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    order_index = db.Column(db.Integer, default=0)
+    workshop_id = db.Column(db.Integer, db.ForeignKey("workshops.id"))
+    estimated_minutes = db.Column(db.Integer, default=0)
+
+    job_card = db.relationship("JobCard", back_populates="substeps")
+    step = db.relationship("JobCardStep", back_populates="substeps")
+    workshop = db.relationship("Workshop")
+    materials = db.relationship(
+        "JobCardMaterial",
+        back_populates="substep",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+
+
+class JobCardMaterial(db.Model):
+    __tablename__ = "job_card_materials"
+
+    id = db.Column(db.Integer, primary_key=True)
+    job_card_id = db.Column(db.Integer, db.ForeignKey("job_cards.id"), nullable=False)
+    material_id = db.Column(db.Integer, db.ForeignKey("materials.id"), nullable=False)
+    paragraph_id = db.Column(db.Integer, db.ForeignKey("job_card_paragraphs.id"))
+    step_id = db.Column(db.Integer, db.ForeignKey("job_card_steps.id"))
+    substep_id = db.Column(db.Integer, db.ForeignKey("job_card_substeps.id"))
+    quantity = db.Column(db.Float, default=1.0)
+    notes = db.Column(db.String(255))
+
+    job_card = db.relationship("JobCard", back_populates="material_assignments")
+    material = db.relationship("Material", back_populates="job_card_links")
+    paragraph = db.relationship("JobCardParagraph", back_populates="materials")
+    step = db.relationship("JobCardStep", back_populates="materials")
+    substep = db.relationship("JobCardSubstep", back_populates="materials")
 
 
 class InventorySnapshot(db.Model):

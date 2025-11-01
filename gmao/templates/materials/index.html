@@ -29,22 +29,35 @@
     <thead>
       <tr>
         <th>Désignation</th>
-        <th>Catégorie</th>
+        <th>PN</th>
+        <th>SN</th>
+        <th>NIIN</th>
         <th>Dotation</th>
+        <th>Att. RPN</th>
+        <th>En RPN</th>
         <th>Stock</th>
-        <th>Consommation annuelle</th>
-        <th></th>
+        <th class="text-end">Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for material in materials %}
         <tr>
           <td>{{ material.designation }}</td>
-          <td>{{ material.category }}</td>
+          <td>{{ material.part_number or '—' }}</td>
+          <td>{{ material.serial_number or '—' }}</td>
+          <td>{{ material.niin or '—' }}</td>
           <td>{{ material.dotation }}</td>
+          <td>{{ material.unavailable_for_repair }}</td>
+          <td>{{ material.in_repair }}</td>
           <td>{{ material.stock }}</td>
-          <td>{{ material.annual_consumption }}</td>
-          <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('materials.detail', material_id=material.id) }}">Fiche</a></td>
+          <td class="text-end">
+            <div class="btn-group btn-group-sm">
+              <a class="btn btn-outline-primary" href="{{ url_for('materials.detail', material_id=material.id) }}">Voir</a>
+              <form method="post" action="{{ url_for('materials.delete', material_id=material.id) }}" onsubmit="return confirm('Supprimer ce matériel ?');">
+                <button class="btn btn-outline-danger" type="submit">Supprimer</button>
+              </form>
+            </div>
+          </td>
         </tr>
       {% endfor %}
     </tbody>
@@ -72,6 +85,30 @@
               <option value="banc d'essai">Banc d'essai</option>
             </select>
           </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-4">
+              <label class="form-label">PN</label>
+              <input class="form-control" name="part_number">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">SN</label>
+              <input class="form-control" name="serial_number">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">NIIN</label>
+              <input class="form-control" name="niin">
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-6">
+              <label class="form-label">NSN</label>
+              <input class="form-control" name="nsn">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">FSC</label>
+              <input class="form-control" name="fsc">
+            </div>
+          </div>
           <div class="row g-2">
             <div class="col">
               <label class="form-label">Dotation</label>
@@ -86,6 +123,16 @@
             <div class="col">
               <label class="form-label">Avionnée</label>
               <input class="form-control" name="avionnee" type="number" min="0" value="0">
+            </div>
+            <div class="col">
+              <label class="form-label">Att. RPN</label>
+              <input class="form-control" name="unavailable_for_repair" type="number" min="0" value="0">
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col">
+              <label class="form-label">En RPN</label>
+              <input class="form-control" name="in_repair" type="number" min="0" value="0">
             </div>
             <div class="col">
               <label class="form-label">Consommation annuelle</label>
