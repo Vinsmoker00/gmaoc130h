@@ -166,6 +166,32 @@ def add_task(visit_id: int):
     return redirect(url_for("maintenance.detail", visit_id=visit.id))
 
 
+@bp.route("/tasks/<int:task_id>/update", methods=["POST"])
+@login_required
+def update_task(task_id: int):
+    task = MaintenanceTask.query.get_or_404(task_id)
+    task.name = (request.form.get("name") or task.name).strip()
+    task.status = request.form.get("status", task.status)
+    task.estimated_hours = request.form.get("estimated_hours", type=float, default=task.estimated_hours)
+    task.workshop_id = request.form.get("workshop_id", type=int)
+    task.lead_id = request.form.get("lead_id", type=int)
+    job_card_id = request.form.get("job_card_id")
+    if job_card_id is not None:
+        if job_card_id == "":
+            task.job_card = None
+        else:
+            job_card = JobCard.query.get(int(job_card_id))
+            if job_card:
+                task.job_card = job_card
+                if task.is_package_item and task.package_code == job_card.card_number:
+                    task.name = f"{task.package_code} · {job_card.title}"
+            else:
+                flash("Job card introuvable", "warning")
+    db.session.commit()
+    flash("Tâche mise à jour", "success")
+    return redirect(url_for("maintenance.detail", visit_id=task.visit_id))
+
+
 @bp.route("/tasks/<int:task_id>/status", methods=["POST"])
 @login_required
 def update_task_status(task_id: int):
@@ -183,6 +209,17 @@ def update_task_status(task_id: int):
     db.session.commit()
     flash("Tâche mise à jour", "success")
     return redirect(url_for("maintenance.detail", visit_id=task.visit_id))
+
+
+@bp.route("/tasks/<int:task_id>/delete", methods=["POST"])
+@login_required
+def delete_task(task_id: int):
+    task = MaintenanceTask.query.get_or_404(task_id)
+    visit_id = task.visit_id
+    db.session.delete(task)
+    db.session.commit()
+    flash("Tâche supprimée", "success")
+    return redirect(url_for("maintenance.detail", visit_id=visit_id))
 
 
 @bp.route("/tasks/<int:task_id>/materials", methods=["POST"])

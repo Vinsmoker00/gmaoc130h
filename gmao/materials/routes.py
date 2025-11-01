@@ -61,7 +61,8 @@ def detail(material_id: int):
 @login_required
 def update(material_id: int):
     material = Material.query.get_or_404(material_id)
-    fields = [
+
+    int_fields = [
         "dotation",
         "avionnee",
         "stock",
@@ -74,20 +75,20 @@ def update(material_id: int):
         "consumable_stock",
         "consumable_dotation",
     ]
-    for field in fields:
-        if field in request.form:
-            setattr(material, field, int(request.form[field]))
+    for field in int_fields:
+        if field in request.form and request.form[field] != "":
+            setattr(material, field, request.form.get(field, type=int))
 
     def cleaned_value(field_name: str) -> Optional[str]:
         if field_name not in request.form:
             return getattr(material, field_name)
-        value = request.form.get(field_name, "")
-        if value is None:
-            return getattr(material, field_name)
-        value = value.strip()
+        value = (request.form.get(field_name) or "").strip()
         return value or None
 
     string_fields = [
+        "designation",
+        "part_number",
+        "serial_number",
         "nsn",
         "niin",
         "fsc",
@@ -97,9 +98,24 @@ def update(material_id: int):
         "contract_type",
         "consumable_type",
     ]
-
     for field in string_fields:
         setattr(material, field, cleaned_value(field))
+
+    if "category" in request.form and request.form["category"]:
+        material.category = request.form["category"]
+
+    material.warranty = request.form.get("warranty") == "on"
+
     db.session.commit()
-    flash("Stock mis à jour", "success")
+    flash("Fiche matériel mise à jour", "success")
     return redirect(url_for("materials.detail", material_id=material_id))
+
+
+@bp.route("/<int:material_id>/delete", methods=["POST"])
+@login_required
+def delete(material_id: int):
+    material = Material.query.get_or_404(material_id)
+    db.session.delete(material)
+    db.session.commit()
+    flash("Matériel supprimé", "success")
+    return redirect(url_for("materials.index"))

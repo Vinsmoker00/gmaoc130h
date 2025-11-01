@@ -84,6 +84,7 @@ def manage_users():
         latest_status.setdefault(record.personnel_id, record)
     status_options = sorted({record.status for record in statuses})
     workshops = Workshop.query.order_by(Workshop.name).all()
+    roles = Role.query.order_by(Role.name).all()
     return render_template(
         "personnel/index.html",
         users=users,
@@ -94,4 +95,61 @@ def manage_users():
         status_options=status_options,
         status_filter=None,
         workshops=workshops,
+        roles=roles,
     )
+
+
+@bp.route("/users/<int:user_id>/update", methods=["POST"])
+@login_required
+def update_user(user_id: int):
+    if current_user.role.name != "admin":
+        flash("Seul l'administrateur peut modifier les comptes.", "warning")
+        return redirect(url_for("dashboard.home"))
+    user = User.query.get_or_404(user_id)
+    username = (request.form.get("username") or "").strip()
+    if username:
+        existing = User.query.filter(User.id != user.id, User.username == username).first()
+        if existing:
+            flash("Ce nom d'utilisateur est déjà utilisé", "danger")
+            return redirect(url_for("auth.manage_users"))
+        user.username = username
+    full_name = (request.form.get("full_name") or "").strip()
+    if full_name:
+        user.full_name = full_name
+    rank = (request.form.get("rank") or "").strip()
+    if rank:
+        user.rank = rank
+    role_name = (request.form.get("role") or "").strip()
+    if role_name:
+        role = Role.query.filter_by(name=role_name).first()
+        if role:
+            user.role = role
+        else:
+            flash("Rôle introuvable", "warning")
+    workshop_id = request.form.get("workshop_id", type=int)
+    if workshop_id:
+        user.workshop = Workshop.query.get(workshop_id)
+    else:
+        user.workshop = None
+    password = request.form.get("password")
+    if password:
+        user.set_password(password)
+    db.session.commit()
+    flash("Utilisateur mis à jour", "success")
+    return redirect(url_for("auth.manage_users"))
+
+
+@bp.route("/users/<int:user_id>/delete", methods=["POST"])
+@login_required
+def delete_user(user_id: int):
+    if current_user.role.name != "admin":
+        flash("Seul l'administrateur peut supprimer des comptes.", "warning")
+        return redirect(url_for("dashboard.home"))
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash("Vous ne pouvez pas supprimer votre propre compte.", "warning")
+        return redirect(url_for("auth.manage_users"))
+    db.session.delete(user)
+    db.session.commit()
+    flash("Utilisateur supprimé", "success")
+    return redirect(url_for("auth.manage_users"))

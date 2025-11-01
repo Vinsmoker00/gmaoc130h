@@ -6,7 +6,13 @@
     <h1 class="h3 mb-0">{{ visit.name }} · {{ visit.aircraft.tail_number }}</h1>
     <p class="text-muted mb-0">Type {{ visit.vp_type }} · {{ visit.status }}</p>
   </div>
-  <a class="btn btn-secondary" href="{{ url_for('maintenance.index') }}">Retour liste</a>
+  <div class="btn-group">
+    <a class="btn btn-secondary" href="{{ url_for('maintenance.index') }}">Retour liste</a>
+    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editVisitModal">Modifier</button>
+    <form class="d-inline" method="post" action="{{ url_for('maintenance.delete_visit', visit_id=visit.id) }}" onsubmit="return confirm('Supprimer cette visite et toutes ses tâches ?');">
+      <button class="btn btn-outline-danger" type="submit">Supprimer</button>
+    </form>
+  </div>
 </div>
 {% endblock %}
 {% block page_content %}
@@ -183,7 +189,12 @@
                   {% if task.materials.count() %}
                     <ul class="list-unstyled mb-0">
                       {% for req in task.materials %}
-                        <li>{{ req.material.designation }} · {{ req.quantity }}</li>
+                        <li class="d-flex justify-content-between align-items-center">
+                          <span>{{ req.material.designation }} · {{ req.quantity }}</span>
+                          <form method="post" action="{{ url_for('maintenance.delete_task_material', requirement_id=req.id) }}" class="ms-2">
+                            <button class="btn btn-link btn-sm text-danger p-0" type="submit">Retirer</button>
+                          </form>
+                        </li>
                       {% endfor %}
                     </ul>
                   {% else %}
@@ -198,7 +209,12 @@
                   {% endif %}
                 </td>
                 <td class="text-end">
-                  <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#taskModal{{ task.id }}">Mettre à jour</button>
+                  <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#taskModal{{ task.id }}">Mettre à jour</button>
+                    <form class="d-inline" method="post" action="{{ url_for('maintenance.delete_task', task_id=task.id) }}" onsubmit="return confirm('Supprimer définitivement cette tâche ?');">
+                      <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             {% endfor %}
@@ -255,6 +271,50 @@
             <a class="btn btn-sm btn-outline-primary" href="{{ url_for('archive.index', search=task.job_card.card_number) }}">Ouvrir l'archive</a>
           </div>
         {% endif %}
+        <form class="mb-4" method="post" action="{{ url_for('maintenance.update_task', task_id=task.id) }}">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Intitulé</label>
+              <input class="form-control" name="name" value="{{ task.name }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Job card liée</label>
+              <select class="form-select" name="job_card_id">
+                <option value="">Sans</option>
+                {% for card in job_cards %}
+                  <option value="{{ card.id }}" {% if task.job_card_id == card.id %}selected{% endif %}>{{ card.card_number }} · {{ card.title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-4">
+              <label class="form-label">Atelier</label>
+              <select class="form-select" name="workshop_id">
+                <option value="">Non assigné</option>
+                {% for workshop in workshops %}
+                  <option value="{{ workshop.id }}" {% if task.workshop_id == workshop.id %}selected{% endif %}>{{ workshop.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Chef d'équipe</label>
+              <select class="form-select" name="lead_id">
+                <option value="">Non assigné</option>
+                {% for person in personnel %}
+                  <option value="{{ person.id }}" {% if task.lead_id == person.id %}selected{% endif %}>{{ person.full_name }} ({{ person.rank }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Heures estimées</label>
+              <input class="form-control" type="number" step="0.5" name="estimated_hours" value="{{ task.estimated_hours }}">
+            </div>
+          </div>
+          <div class="text-end mt-3">
+            <button class="btn btn-primary" type="submit">Mettre à jour la tâche</button>
+          </div>
+        </form>
         <form class="mb-4" method="post" action="{{ url_for('maintenance.update_task_status', task_id=task.id) }}">
           <div class="row g-2">
             <div class="col-md-4">

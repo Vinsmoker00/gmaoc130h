@@ -126,6 +126,17 @@ def add_attachment(card_id: int):
     return redirect(url_for("archive.index"))
 
 
+@bp.route("/attachments/<int:attachment_id>/delete", methods=["POST"])
+@login_required
+def delete_attachment(attachment_id: int):
+    attachment = JobCardAttachment.query.get_or_404(attachment_id)
+    card_id = attachment.job_card_id
+    db.session.delete(attachment)
+    db.session.commit()
+    flash("Pièce jointe supprimée", "success")
+    return redirect(url_for("archive.card_detail", card_id=card_id))
+
+
 @bp.route("/attachments/<int:attachment_id>")
 @login_required
 def download_attachment(attachment_id: int):
