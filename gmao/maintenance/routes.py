@@ -1,5 +1,7 @@
 from datetime import date, datetime
 
+from typing import Dict, Iterable, List
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
@@ -15,6 +17,15 @@ from ..models import (
     User,
     Workshop,
 )
+from .packages import normalize_visit_type, package_for_visit
+
+PACKAGE_PERIODICITY_MONTHS = {
+    "A": 9,
+    "B": 18,
+    "C": 36,
+    "D1": 72,
+    "D2": 144,
+}
 
 bp = Blueprint("maintenance", __name__, url_prefix="/maintenance")
 
@@ -54,7 +65,21 @@ def create():
     )
     db.session.add(visit)
     db.session.commit()
-    flash("Visite programmée", "success")
+
+    created_tasks, missing_cards = _populate_visit_from_package(visit)
+    if created_tasks:
+        db.session.commit()
+        flash(
+            f"{len(created_tasks)} tâches package ajoutées automatiquement.",
+            "success",
+        )
+    else:
+        flash("Visite programmée", "success")
+    if missing_cards:
+        flash(
+            "Job cards manquantes dans l'archive : " + ", ".join(sorted(missing_cards)),
+            "warning",
+        )
     return redirect(url_for("maintenance.detail", visit_id=visit.id))
 
 
@@ -67,6 +92,12 @@ def detail(visit_id: int):
     materials = Material.query.order_by(Material.designation).all()
     statuses = PersonnelStatus.query.filter_by(status="on-site").all()
     job_cards = JobCard.query.order_by(JobCard.card_number).all()
+    aircrafts = Aircraft.query.order_by(Aircraft.tail_number).all()
+    tasks = visit.tasks.order_by(MaintenanceTask.name).all()
+    package_codes = package_for_visit(visit.vp_type)
+    package_status = _package_status(visit, tasks, package_codes)
+    material_totals = _aggregate_visit_materials(tasks)
+    periodicity = PACKAGE_PERIODICITY_MONTHS.get(package_status["vp_key"], None)
     return render_template(
         "maintenance/detail.html",
         visit=visit,
@@ -75,7 +106,64 @@ def detail(visit_id: int):
         materials=materials,
         statuses=statuses,
         job_cards=job_cards,
+        aircrafts=aircrafts,
+        tasks=tasks,
+        package_status=package_status,
+        package_codes=package_codes,
+        material_totals=material_totals,
+        periodicity_months=periodicity,
     )
+
+
+@bp.route("/<int:visit_id>/update", methods=["POST"])
+@login_required
+def update_visit(visit_id: int):
+    visit = MaintenanceVisit.query.get_or_404(visit_id)
+    visit.name = (request.form.get("name") or visit.name).strip()
+    visit.vp_type = request.form.get("vp_type", visit.vp_type)
+    visit.status = request.form.get("status", visit.status)
+    visit.description = (request.form.get("description") or "").strip() or None
+    aircraft_id = request.form.get("aircraft_id", type=int)
+    if aircraft_id:
+        visit.aircraft_id = aircraft_id
+    start_date = request.form.get("start_date")
+    end_date = request.form.get("end_date")
+    if start_date:
+        visit.start_date = date.fromisoformat(start_date)
+    if end_date == "":
+        visit.end_date = None
+    elif end_date:
+        visit.end_date = date.fromisoformat(end_date)
+    db.session.commit()
+    flash("Visite mise à jour", "success")
+    return redirect(url_for("maintenance.detail", visit_id=visit.id))
+
+
+@bp.route("/<int:visit_id>/delete", methods=["POST"], endpoint="delete_visit")
+@login_required
+def remove_visit(visit_id: int):
+    visit = MaintenanceVisit.query.get_or_404(visit_id)
+    db.session.delete(visit)
+    db.session.commit()
+    flash("Visite supprimée", "success")
+    return redirect(url_for("maintenance.index"))
+
+
+@bp.route("/<int:visit_id>/package/sync", methods=["POST"])
+@login_required
+def sync_package(visit_id: int):
+    visit = MaintenanceVisit.query.get_or_404(visit_id)
+    created_tasks, missing_cards = _populate_visit_from_package(visit)
+    relinked = _attach_available_job_cards(visit)
+    if created_tasks or relinked:
+        db.session.commit()
+        flash("Package synchronisé avec l'archive.", "success")
+    if missing_cards:
+        flash(
+            "Job cards manquantes dans l'archive : " + ", ".join(sorted(missing_cards)),
+            "warning",
+        )
+    return redirect(url_for("maintenance.detail", visit_id=visit.id))
 
 
 @bp.route("/<int:visit_id>/tasks", methods=["POST"])
@@ -114,6 +202,32 @@ def add_task(visit_id: int):
     return redirect(url_for("maintenance.detail", visit_id=visit.id))
 
 
+@bp.route("/tasks/<int:task_id>/update", methods=["POST"])
+@login_required
+def update_task(task_id: int):
+    task = MaintenanceTask.query.get_or_404(task_id)
+    task.name = (request.form.get("name") or task.name).strip()
+    task.status = request.form.get("status", task.status)
+    task.estimated_hours = request.form.get("estimated_hours", type=float, default=task.estimated_hours)
+    task.workshop_id = request.form.get("workshop_id", type=int)
+    task.lead_id = request.form.get("lead_id", type=int)
+    job_card_id = request.form.get("job_card_id")
+    if job_card_id is not None:
+        if job_card_id == "":
+            task.job_card = None
+        else:
+            job_card = JobCard.query.get(int(job_card_id))
+            if job_card:
+                task.job_card = job_card
+                if task.is_package_item and task.package_code == job_card.card_number:
+                    task.name = f"{task.package_code} · {job_card.title}"
+            else:
+                flash("Job card introuvable", "warning")
+    db.session.commit()
+    flash("Tâche mise à jour", "success")
+    return redirect(url_for("maintenance.detail", visit_id=task.visit_id))
+
+
 @bp.route("/tasks/<int:task_id>/status", methods=["POST"])
 @login_required
 def update_task_status(task_id: int):
@@ -131,6 +245,17 @@ def update_task_status(task_id: int):
     db.session.commit()
     flash("Tâche mise à jour", "success")
     return redirect(url_for("maintenance.detail", visit_id=task.visit_id))
+
+
+@bp.route("/tasks/<int:task_id>/delete", methods=["POST"])
+@login_required
+def delete_task(task_id: int):
+    task = MaintenanceTask.query.get_or_404(task_id)
+    visit_id = task.visit_id
+    db.session.delete(task)
+    db.session.commit()
+    flash("Tâche supprimée", "success")
+    return redirect(url_for("maintenance.detail", visit_id=visit_id))
 
 
 @bp.route("/tasks/<int:task_id>/materials", methods=["POST"])
@@ -152,3 +277,131 @@ def update_task_materials(task_id: int):
     db.session.commit()
     flash("Besoin en matériel mis à jour", "success")
     return redirect(url_for("maintenance.detail", visit_id=task.visit_id))
+
+
+@bp.route("/materials/<int:requirement_id>/delete", methods=["POST"])
+@login_required
+def delete_task_material(requirement_id: int):
+    requirement = MaterialRequirement.query.get_or_404(requirement_id)
+    visit_id = requirement.task.visit_id
+    db.session.delete(requirement)
+    db.session.commit()
+    flash("Besoin supprimé", "success")
+    return redirect(url_for("maintenance.detail", visit_id=visit_id))
+
+
+def _populate_visit_from_package(visit: MaintenanceVisit):
+    package_codes = package_for_visit(visit.vp_type)
+    created_tasks: List[MaintenanceTask] = []
+    missing_cards: List[str] = []
+    existing_codes = {
+        task.package_code
+        for task in MaintenanceTask.query.filter_by(visit_id=visit.id, is_package_item=True)
+        if task.package_code
+    }
+    for code in package_codes:
+        if code in existing_codes:
+            continue
+        job_card = JobCard.query.filter_by(card_number=code).first()
+        if job_card:
+            name = f"{code} · {job_card.title}"
+            estimated_hours = job_card.estimated_hours
+        else:
+            missing_cards.append(code)
+            name = f"{code} (à compléter)"
+            estimated_hours = 0.0
+        task = MaintenanceTask(
+            visit=visit,
+            name=name,
+            job_card=job_card,
+            status="pending",
+            estimated_hours=estimated_hours,
+            is_package_item=True,
+            package_code=code,
+        )
+        db.session.add(task)
+        created_tasks.append(task)
+    return created_tasks, missing_cards
+
+
+def _attach_available_job_cards(visit: MaintenanceVisit):
+    relinked: List[MaintenanceTask] = []
+    package_tasks = MaintenanceTask.query.filter_by(visit_id=visit.id, is_package_item=True).all()
+    for task in package_tasks:
+        if not task.is_package_item or task.job_card_id:
+            continue
+        if not task.package_code:
+            continue
+        job_card = JobCard.query.filter_by(card_number=task.package_code).first()
+        if job_card is None:
+            continue
+        task.job_card = job_card
+        task.name = f"{task.package_code} · {job_card.title}"
+        task.estimated_hours = job_card.estimated_hours
+        relinked.append(task)
+    return relinked
+
+
+def _package_status(
+    visit: MaintenanceVisit,
+    tasks: Iterable[MaintenanceTask],
+    package_codes: Iterable[str],
+) -> Dict[str, object]:
+    task_by_code: Dict[str, MaintenanceTask] = {}
+    completed = 0
+    for task in tasks:
+        if task.is_package_item and task.package_code:
+            task_by_code[task.package_code] = task
+            if task.status == "completed":
+                completed += 1
+    overview = []
+    for code in package_codes:
+        task = task_by_code.get(code)
+        overview.append(
+            {
+                "code": code,
+                "task": task,
+                "job_card": task.job_card if task else JobCard.query.filter_by(card_number=code).first(),
+                "status": task.status if task else "missing",
+            }
+        )
+    total = len(package_codes)
+    return {
+        "vp_key": normalize_visit_type(visit.vp_type),
+        "overview": overview,
+        "total": total,
+        "completed": completed,
+        "available": len(task_by_code),
+        "missing": [code for code in package_codes if code not in task_by_code],
+    }
+
+
+def _aggregate_visit_materials(tasks: Iterable[MaintenanceTask]):
+    aggregated: Dict[int, Dict[str, object]] = {}
+    for task in tasks:
+        for requirement in task.materials:
+            entry = aggregated.setdefault(
+                requirement.material_id,
+                {
+                    "material": requirement.material,
+                    "job_card_quantity": 0.0,
+                    "additional_quantity": 0.0,
+                },
+            )
+            entry["additional_quantity"] += requirement.quantity or 0
+        if task.job_card is None:
+            continue
+        for assignment in task.job_card.material_assignments:
+            entry = aggregated.setdefault(
+                assignment.material_id,
+                {
+                    "material": assignment.material,
+                    "job_card_quantity": 0.0,
+                    "additional_quantity": 0.0,
+                },
+            )
+            entry["job_card_quantity"] += assignment.quantity or 0
+    return sorted(
+        aggregated.values(),
+        key=lambda item: item["material"].designation if item["material"] else "",
+    )

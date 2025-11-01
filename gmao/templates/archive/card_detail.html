@@ -1,0 +1,613 @@
+{% extends 'layout.html' %}
+{% block title %}{{ card.card_number }} · Détail job card{% endblock %}
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ card.card_number }} · {{ card.title }}</h1>
+    <p class="text-muted mb-0">Révision {{ card.revision or 'n/a' }} · créée le {{ card.created_at.strftime('%d/%m/%Y') }}</p>
+  </div>
+  <a class="btn btn-secondary" href="{{ url_for('archive.index') }}">Retour à l'archive</a>
+</div>
+{% endblock %}
+{% block page_content %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Résumé</h2>
+      </div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5">Numéro</dt>
+          <dd class="col-7">{{ card.card_number }}</dd>
+          <dt class="col-5">Révision</dt>
+          <dd class="col-7">{{ card.revision or '—' }}</dd>
+          <dt class="col-5">Temps estimé</dt>
+          <dd class="col-7">{{ card.estimated_hours }} h</dd>
+        </dl>
+        {% if card.summary %}
+        <hr>
+        <p class="small mb-0">{{ card.summary }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card shadow-sm mt-3">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Nouveau paragraphe</h2>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('archive.add_paragraph', card_id=card.id) }}">
+          <div class="mb-2">
+            <label class="form-label">Titre</label>
+            <input class="form-control" name="title" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="2"></textarea>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label">Ordre</label>
+              <input class="form-control" type="number" name="order_index" min="0" value="{{ card.paragraphs|length }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Temps (min)</label>
+              <input class="form-control" type="number" name="estimated_minutes" min="0" value="0">
+            </div>
+          </div>
+          <div class="mb-2 mt-2">
+            <label class="form-label">Atelier</label>
+            <select class="form-select" name="workshop_id">
+              <option value="">—</option>
+              {% for workshop in workshops %}
+                <option value="{{ workshop.id }}">{{ workshop.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn btn-primary" type="submit">Ajouter</button>
+        </form>
+      </div>
+    </div>
+    <div class="card shadow-sm mt-3">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Étape sans paragraphe</h2>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('archive.add_step', card_id=card.id) }}">
+          <div class="mb-2">
+            <label class="form-label">Titre</label>
+            <input class="form-control" name="title">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="2" required></textarea>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label">Ordre</label>
+              <input class="form-control" type="number" name="order_index" min="0" value="0">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Temps (min)</label>
+              <input class="form-control" type="number" name="estimated_minutes" min="0" value="0">
+            </div>
+          </div>
+          <div class="mb-2 mt-2">
+            <label class="form-label">Atelier</label>
+            <select class="form-select" name="workshop_id">
+              <option value="">—</option>
+              {% for workshop in workshops %}
+                <option value="{{ workshop.id }}">{{ workshop.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn btn-outline-primary" type="submit">Ajouter</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Structure</h2>
+      </div>
+      <div class="card-body">
+        {% if card.paragraphs %}
+          {% for paragraph in card.paragraphs|sort(attribute='order_index') %}
+            <div class="border rounded p-3 mb-3">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <h3 class="h6 mb-1">Paragraphe {{ paragraph.order_index }} · {{ paragraph.title }}</h3>
+                  {% if paragraph.description %}
+                    <p class="mb-2 small">{{ paragraph.description }}</p>
+                  {% endif %}
+                  <p class="mb-1 small text-muted">Temps estimé : {{ paragraph.estimated_minutes }} min{% if paragraph.workshop %} · Atelier {{ paragraph.workshop.name }}{% endif %}</p>
+                </div>
+                <div class="text-end">
+                  <div class="text-muted small">ID {{ paragraph.id }}</div>
+                  <div class="btn-group btn-group-sm mt-2">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#paragraphEdit{{ paragraph.id }}" aria-expanded="false">Modifier</button>
+                    <form class="d-inline" method="post" action="{{ url_for('archive.delete_paragraph', paragraph_id=paragraph.id) }}" onsubmit="return confirm('Supprimer ce paragraphe et sa structure ?');">
+                      <button class="btn btn-outline-danger" type="submit">Supprimer</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              <div class="collapse border-top pt-3 mt-3" id="paragraphEdit{{ paragraph.id }}">
+                <form class="row g-2 align-items-end" method="post" action="{{ url_for('archive.update_paragraph', paragraph_id=paragraph.id) }}">
+                  <div class="col-md-6">
+                    <label class="form-label">Titre</label>
+                    <input class="form-control" name="title" value="{{ paragraph.title }}" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Ordre</label>
+                    <input class="form-control" type="number" name="order_index" min="0" value="{{ paragraph.order_index }}">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Temps (min)</label>
+                    <input class="form-control" type="number" name="estimated_minutes" min="0" value="{{ paragraph.estimated_minutes }}">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" name="description" rows="2">{{ paragraph.description or '' }}</textarea>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Atelier</label>
+                    <select class="form-select" name="workshop_id">
+                      <option value="">—</option>
+                      {% for workshop in workshops %}
+                        <option value="{{ workshop.id }}" {% if paragraph.workshop_id == workshop.id %}selected{% endif %}>{{ workshop.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-12 text-end">
+                    <button class="btn btn-primary" type="submit">Sauvegarder</button>
+                  </div>
+                </form>
+              </div>
+              {% set paragraph_materials = paragraph.materials.all() %}
+              {% if paragraph_materials %}
+                <div class="mb-2">
+                  <strong class="small">Matériels</strong>
+                  <ul class="small mb-2 list-unstyled">
+                    {% for item in paragraph_materials %}
+                      <li class="d-flex justify-content-between align-items-center">
+                        <span>{{ item.material.designation }} · {{ item.quantity }}</span>
+                        <form method="post" action="{{ url_for('archive.delete_job_card_material', assignment_id=item.id) }}" class="ms-2">
+                          <button class="btn btn-link btn-sm text-danger p-0" type="submit">Retirer</button>
+                        </form>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+              <div class="mb-3">
+                {% for step in paragraph.steps %}
+                  <div class="border-start border-3 ps-3 mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                      <div>
+                        <h4 class="h6">Étape {{ step.order_index }}{% if step.title %} · {{ step.title }}{% endif %}</h4>
+                        <p class="small mb-1">{{ step.description }}</p>
+                        <p class="small text-muted mb-2">Temps : {{ step.estimated_minutes }} min{% if step.workshop %} · Atelier {{ step.workshop.name }}{% endif %}</p>
+                      </div>
+                      <div class="text-end">
+                        <div class="text-muted small">ID {{ step.id }}</div>
+                        <div class="btn-group btn-group-sm mt-2">
+                          <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#stepEdit{{ step.id }}" aria-expanded="false">Modifier</button>
+                          <form class="d-inline" method="post" action="{{ url_for('archive.delete_step', step_id=step.id) }}" onsubmit="return confirm('Supprimer cette étape ?');">
+                            <button class="btn btn-outline-danger" type="submit">Supprimer</button>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="collapse border-top pt-3 mt-3" id="stepEdit{{ step.id }}">
+                      <form class="row g-2" method="post" action="{{ url_for('archive.update_step', step_id=step.id) }}">
+                        <input type="hidden" name="paragraph_id" value="{{ paragraph.id }}">
+                        <div class="col-md-4">
+                          <label class="form-label">Titre</label>
+                          <input class="form-control" name="title" value="{{ step.title or '' }}">
+                        </div>
+                        <div class="col-md-2">
+                          <label class="form-label">Ordre</label>
+                          <input class="form-control" type="number" name="order_index" value="{{ step.order_index }}">
+                        </div>
+                        <div class="col-md-2">
+                          <label class="form-label">Temps (min)</label>
+                          <input class="form-control" type="number" name="estimated_minutes" value="{{ step.estimated_minutes }}">
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label">Atelier</label>
+                          <select class="form-select" name="workshop_id">
+                            <option value="">—</option>
+                            {% for workshop in workshops %}
+                              <option value="{{ workshop.id }}" {% if step.workshop_id == workshop.id %}selected{% endif %}>{{ workshop.name }}</option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                        <div class="col-12">
+                          <label class="form-label">Description</label>
+                          <textarea class="form-control" name="description" rows="2">{{ step.description }}</textarea>
+                        </div>
+                        <div class="col-12 text-end">
+                          <button class="btn btn-primary" type="submit">Sauvegarder</button>
+                        </div>
+                      </form>
+                    </div>
+                    {% set step_materials = step.materials.all() %}
+                    {% if step_materials %}
+                      <div class="mb-2">
+                        <strong class="small">Matériels</strong>
+                        <ul class="small mb-2 list-unstyled">
+                          {% for item in step_materials %}
+                            <li class="d-flex justify-content-between align-items-center">
+                              <span>{{ item.material.designation }} · {{ item.quantity }}</span>
+                              <form method="post" action="{{ url_for('archive.delete_job_card_material', assignment_id=item.id) }}" class="ms-2">
+                                <button class="btn btn-link btn-sm text-danger p-0" type="submit">Retirer</button>
+                              </form>
+                            </li>
+                          {% endfor %}
+                        </ul>
+                      </div>
+                    {% endif %}
+                    {% if step.substeps %}
+                      <div class="mb-2">
+                        <strong class="small d-block">Sous-étapes</strong>
+                        <ul class="list-unstyled mb-2">
+                          {% for substep in step.substeps %}
+                            <li class="mb-2">
+                              <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                  <strong>Substep {{ substep.order_index }} :</strong> {{ substep.description }}
+                                  <span class="text-muted">({{ substep.estimated_minutes }} min{% if substep.workshop %} · {{ substep.workshop.name }}{% endif %})</span>
+                                </div>
+                                <div class="btn-group btn-group-sm ms-2">
+                                  <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#substepEdit{{ substep.id }}" aria-expanded="false">Modifier</button>
+                                  <form class="d-inline" method="post" action="{{ url_for('archive.delete_substep', substep_id=substep.id) }}" onsubmit="return confirm('Supprimer cette sous-étape ?');">
+                                    <button class="btn btn-outline-danger" type="submit">Supprimer</button>
+                                  </form>
+                                </div>
+                              </div>
+                              <div class="collapse border-start border-2 ps-3 mt-2" id="substepEdit{{ substep.id }}">
+                                <form class="row g-2" method="post" action="{{ url_for('archive.update_substep', substep_id=substep.id) }}">
+                                  <div class="col-md-5">
+                                    <label class="form-label">Description</label>
+                                    <textarea class="form-control" name="description" rows="2">{{ substep.description }}</textarea>
+                                  </div>
+                                  <div class="col-md-2">
+                                    <label class="form-label">Ordre</label>
+                                    <input class="form-control" type="number" name="order_index" value="{{ substep.order_index }}">
+                                  </div>
+                                  <div class="col-md-2">
+                                    <label class="form-label">Temps (min)</label>
+                                    <input class="form-control" type="number" name="estimated_minutes" value="{{ substep.estimated_minutes }}">
+                                  </div>
+                                  <div class="col-md-3">
+                                    <label class="form-label">Atelier</label>
+                                    <select class="form-select" name="workshop_id">
+                                      <option value="">—</option>
+                                      {% for workshop in workshops %}
+                                        <option value="{{ workshop.id }}" {% if substep.workshop_id == workshop.id %}selected{% endif %}>{{ workshop.name }}</option>
+                                      {% endfor %}
+                                    </select>
+                                  </div>
+                                  <div class="col-12 text-end">
+                                    <button class="btn btn-primary" type="submit">Sauvegarder</button>
+                                  </div>
+                                </form>
+                              </div>
+                              {% set substep_materials = substep.materials.all() %}
+                              {% if substep_materials %}
+                                <ul class="small mt-2 list-unstyled">
+                                  {% for item in substep_materials %}
+                                    <li class="d-flex justify-content-between align-items-center">
+                                      <span>{{ item.material.designation }} · {{ item.quantity }}</span>
+                                      <form method="post" action="{{ url_for('archive.delete_job_card_material', assignment_id=item.id) }}" class="ms-2">
+                                        <button class="btn btn-link btn-sm text-danger p-0" type="submit">Retirer</button>
+                                      </form>
+                                    </li>
+                                  {% endfor %}
+                                </ul>
+                              {% endif %}
+                            </li>
+                          {% endfor %}
+                        </ul>
+                      </div>
+                    {% endif %}
+                    <form class="row g-2 align-items-end" method="post" action="{{ url_for('archive.add_substep', card_id=card.id) }}">
+                      <input type="hidden" name="step_id" value="{{ step.id }}">
+                      <div class="col-md-6">
+                        <label class="form-label">Description sous-étape</label>
+                        <textarea class="form-control" name="description" rows="1" required></textarea>
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label">Ordre</label>
+                        <input class="form-control" type="number" name="order_index" min="0" value="0">
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label">Temps (min)</label>
+                        <input class="form-control" type="number" name="estimated_minutes" min="0" value="0">
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label">Atelier</label>
+                        <select class="form-select" name="workshop_id">
+                          <option value="">—</option>
+                          {% for workshop in workshops %}
+                            <option value="{{ workshop.id }}">{{ workshop.name }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="col-12 text-end mt-2">
+                        <button class="btn btn-outline-primary btn-sm" type="submit">Ajouter sous-étape</button>
+                      </div>
+                    </form>
+                    <form class="row g-2 align-items-end mt-2" method="post" action="{{ url_for('archive.add_job_card_material', card_id=card.id) }}">
+                      <input type="hidden" name="step_id" value="{{ step.id }}">
+                      <div class="col-md-6">
+                        <label class="form-label">Matériel</label>
+                        <select class="form-select" name="material_id" required>
+                          {% for material in materials %}
+                            <option value="{{ material.id }}">{{ material.designation }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label">Qté</label>
+                        <input class="form-control" type="number" name="quantity" step="0.1" min="0" value="1">
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label">Note</label>
+                        <input class="form-control" name="notes" value="">
+                      </div>
+                      <div class="col-md-1 text-end">
+                        <button class="btn btn-outline-secondary" type="submit">+</button>
+                      </div>
+                    </form>
+                  </div>
+                {% endfor %}
+              </div>
+              <form class="row g-2 align-items-end" method="post" action="{{ url_for('archive.add_step', card_id=card.id) }}">
+                <input type="hidden" name="paragraph_id" value="{{ paragraph.id }}">
+                <div class="col-md-5">
+                  <label class="form-label">Titre étape</label>
+                  <input class="form-control" name="title">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Description</label>
+                  <textarea class="form-control" name="description" rows="1" required></textarea>
+                </div>
+                <div class="col-md-1">
+                  <label class="form-label">Ordre</label>
+                  <input class="form-control" type="number" name="order_index" min="0" value="0">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Temps (min)</label>
+                  <input class="form-control" type="number" name="estimated_minutes" min="0" value="0">
+                </div>
+                <div class="col-md-4 mt-2">
+                  <label class="form-label">Atelier</label>
+                  <select class="form-select" name="workshop_id">
+                    <option value="">—</option>
+                    {% for workshop in workshops %}
+                      <option value="{{ workshop.id }}">{{ workshop.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4 text-end mt-3">
+                  <button class="btn btn-outline-primary" type="submit">Ajouter étape</button>
+                </div>
+              </form>
+              <form class="row g-2 align-items-end mt-2" method="post" action="{{ url_for('archive.add_job_card_material', card_id=card.id) }}">
+                <input type="hidden" name="paragraph_id" value="{{ paragraph.id }}">
+                <div class="col-md-6">
+                  <label class="form-label">Matériel</label>
+                  <select class="form-select" name="material_id" required>
+                    {% for material in materials %}
+                      <option value="{{ material.id }}">{{ material.designation }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Qté</label>
+                  <input class="form-control" type="number" name="quantity" step="0.1" min="0" value="1">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Note</label>
+                  <input class="form-control" name="notes">
+                </div>
+                <div class="col-md-1 text-end">
+                  <button class="btn btn-outline-secondary" type="submit">+</button>
+                </div>
+              </form>
+            </div>
+          {% endfor %}
+        {% endif %}
+        {% set root_steps = card.root_steps() %}
+        {% if root_steps %}
+          <h3 class="h6">Étapes hors paragraphe</h3>
+          {% for step in root_steps %}
+            <div class="border-start border-3 ps-3 mb-3">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <h4 class="h6">Étape {{ step.order_index }}{% if step.title %} · {{ step.title }}{% endif %}</h4>
+                  <p class="small mb-1">{{ step.description }}</p>
+                  <p class="small text-muted mb-2">Temps : {{ step.estimated_minutes }} min{% if step.workshop %} · Atelier {{ step.workshop.name }}{% endif %}</p>
+                </div>
+                <div class="text-end">
+                  <div class="text-muted small">ID {{ step.id }}</div>
+                        <div class="btn-group btn-group-sm mt-2">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#rootStepEdit{{ step.id }}" aria-expanded="false">Modifier</button>
+                    <form class="d-inline" method="post" action="{{ url_for('archive.delete_step', step_id=step.id) }}" onsubmit="return confirm('Supprimer cette étape ?');">
+                      <button class="btn btn-outline-danger" type="submit">Supprimer</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              <div class="collapse border-top pt-3 mt-3" id="rootStepEdit{{ step.id }}">
+                <form class="row g-2" method="post" action="{{ url_for('archive.update_step', step_id=step.id) }}">
+                  <input type="hidden" name="paragraph_id" value="">
+                  <div class="col-md-4">
+                    <label class="form-label">Titre</label>
+                    <input class="form-control" name="title" value="{{ step.title or '' }}">
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Ordre</label>
+                    <input class="form-control" type="number" name="order_index" value="{{ step.order_index }}">
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Temps (min)</label>
+                    <input class="form-control" type="number" name="estimated_minutes" value="{{ step.estimated_minutes }}">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Atelier</label>
+                    <select class="form-select" name="workshop_id">
+                      <option value="">—</option>
+                      {% for workshop in workshops %}
+                        <option value="{{ workshop.id }}" {% if step.workshop_id == workshop.id %}selected{% endif %}>{{ workshop.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" name="description" rows="2">{{ step.description }}</textarea>
+                  </div>
+                  <div class="col-12 text-end">
+                    <button class="btn btn-primary" type="submit">Sauvegarder</button>
+                  </div>
+                </form>
+              </div>
+              {% set step_materials = step.materials.all() %}
+              {% if step_materials %}
+                <div class="mb-2">
+                  <strong class="small">Matériels</strong>
+                  <ul class="small mb-2 list-unstyled">
+                    {% for item in step_materials %}
+                      <li class="d-flex justify-content-between align-items-center">
+                        <span>{{ item.material.designation }} · {{ item.quantity }}</span>
+                        <form method="post" action="{{ url_for('archive.delete_job_card_material', assignment_id=item.id) }}" class="ms-2">
+                          <button class="btn btn-link btn-sm text-danger p-0" type="submit">Retirer</button>
+                        </form>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+              {% if step.substeps %}
+                <div class="mb-2">
+                  <strong class="small d-block">Sous-étapes</strong>
+                  <ul class="list-unstyled">
+                    {% for substep in step.substeps %}
+                      <li class="mb-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div>
+                            {{ substep.description }} <span class="text-muted">({{ substep.estimated_minutes }} min{% if substep.workshop %} · {{ substep.workshop.name }}{% endif %})</span>
+                          </div>
+                          <div class="btn-group btn-group-sm ms-2">
+                            <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#rootSubstepEdit{{ substep.id }}" aria-expanded="false">Modifier</button>
+                            <form class="d-inline" method="post" action="{{ url_for('archive.delete_substep', substep_id=substep.id) }}" onsubmit="return confirm('Supprimer cette sous-étape ?');">
+                              <button class="btn btn-outline-danger" type="submit">Supprimer</button>
+                            </form>
+                          </div>
+                        </div>
+                        <div class="collapse border-start border-2 ps-3 mt-2" id="rootSubstepEdit{{ substep.id }}">
+                          <form class="row g-2" method="post" action="{{ url_for('archive.update_substep', substep_id=substep.id) }}">
+                            <div class="col-md-5">
+                              <label class="form-label">Description</label>
+                              <textarea class="form-control" name="description" rows="2">{{ substep.description }}</textarea>
+                            </div>
+                            <div class="col-md-2">
+                              <label class="form-label">Ordre</label>
+                              <input class="form-control" type="number" name="order_index" value="{{ substep.order_index }}">
+                            </div>
+                            <div class="col-md-2">
+                              <label class="form-label">Temps (min)</label>
+                              <input class="form-control" type="number" name="estimated_minutes" value="{{ substep.estimated_minutes }}">
+                            </div>
+                            <div class="col-md-3">
+                              <label class="form-label">Atelier</label>
+                              <select class="form-select" name="workshop_id">
+                                <option value="">—</option>
+                                {% for workshop in workshops %}
+                                  <option value="{{ workshop.id }}" {% if substep.workshop_id == workshop.id %}selected{% endif %}>{{ workshop.name }}</option>
+                                {% endfor %}
+                              </select>
+                            </div>
+                            <div class="col-12 text-end">
+                              <button class="btn btn-primary" type="submit">Sauvegarder</button>
+                            </div>
+                          </form>
+                        </div>
+                        {% set substep_materials = substep.materials.all() %}
+                        {% if substep_materials %}
+                          <ul class="small mt-2 list-unstyled">
+                            {% for item in substep_materials %}
+                              <li class="d-flex justify-content-between align-items-center">
+                                <span>{{ item.material.designation }} · {{ item.quantity }}</span>
+                                <form method="post" action="{{ url_for('archive.delete_job_card_material', assignment_id=item.id) }}" class="ms-2">
+                                  <button class="btn btn-link btn-sm text-danger p-0" type="submit">Retirer</button>
+                                </form>
+                              </li>
+                            {% endfor %}
+                          </ul>
+                        {% endif %}
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+              <form class="row g-2 align-items-end" method="post" action="{{ url_for('archive.add_substep', card_id=card.id) }}">
+                <input type="hidden" name="step_id" value="{{ step.id }}">
+                <div class="col-md-6">
+                  <label class="form-label">Description sous-étape</label>
+                  <textarea class="form-control" name="description" rows="1" required></textarea>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Ordre</label>
+                  <input class="form-control" type="number" name="order_index" min="0" value="0">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Temps (min)</label>
+                  <input class="form-control" type="number" name="estimated_minutes" min="0" value="0">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Atelier</label>
+                  <select class="form-select" name="workshop_id">
+                    <option value="">—</option>
+                    {% for workshop in workshops %}
+                      <option value="{{ workshop.id }}">{{ workshop.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-12 text-end mt-2">
+                  <button class="btn btn-outline-primary btn-sm" type="submit">Ajouter sous-étape</button>
+                </div>
+              </form>
+              <form class="row g-2 align-items-end mt-2" method="post" action="{{ url_for('archive.add_job_card_material', card_id=card.id) }}">
+                <input type="hidden" name="step_id" value="{{ step.id }}">
+                <div class="col-md-6">
+                  <label class="form-label">Matériel</label>
+                  <select class="form-select" name="material_id" required>
+                    {% for material in materials %}
+                      <option value="{{ material.id }}">{{ material.designation }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Qté</label>
+                  <input class="form-control" type="number" name="quantity" step="0.1" min="0" value="1">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Note</label>
+                  <input class="form-control" name="notes">
+                </div>
+                <div class="col-md-1 text-end">
+                  <button class="btn btn-outline-secondary" type="submit">+</button>
+                </div>
+              </form>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
