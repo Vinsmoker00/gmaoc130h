@@ -222,7 +222,7 @@
         </table>
     </div>
   </div>
-  {% if material_totals %}
+{% if material_totals %}
   <div class="card shadow-sm mt-3">
     <div class="card-header bg-white">
       <h2 class="h5 mb-0">Synthèse matériel</h2>
@@ -252,6 +252,97 @@
   </div>
   {% endif %}
 </div>
+</div>
+<div class="modal fade" id="editVisitModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('maintenance.update_visit', visit_id=visit.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Modifier la visite</h5>
+          <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Nom</label>
+              <input class="form-control" name="name" value="{{ visit.name }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Type</label>
+              <select class="form-select" name="vp_type">
+                {% for option in ['A','B','C','D1','D2','Inspection spéciale'] %}
+                  <option value="{{ option }}" {% if visit.vp_type == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Statut</label>
+              <select class="form-select" name="status">
+                {% for option in ['planned','ongoing','completed','cancelled'] %}
+                  <option value="{{ option }}" {% if visit.status == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-6">
+              <label class="form-label">Aéronef</label>
+              <select class="form-select" name="aircraft_id">
+                {% for aircraft in aircrafts %}
+                  <option value="{{ aircraft.id }}" {% if visit.aircraft_id == aircraft.id %}selected{% endif %}>{{ aircraft.tail_number }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Début</label>
+              <input class="form-control" type="date" name="start_date" value="{{ visit.start_date.isoformat() }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Fin prévue</label>
+              <input class="form-control" type="date" name="end_date" value="{{ visit.end_date.isoformat() if visit.end_date else '' }}">
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="3">{{ visit.description or '' }}</textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Annuler</button>
+          <button class="btn btn-primary" type="submit">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% if material_totals %}
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-white">
+      <h2 class="h5 mb-0">Synthèse matériel</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Désignation</th>
+            <th>Package</th>
+            <th>Compléments</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in material_totals %}
+            <tr>
+              <td>{{ item.material.designation }}</td>
+              <td>{{ item.job_card_quantity }}</td>
+              <td>{{ item.additional_quantity }}</td>
+              <td>{{ item.job_card_quantity + item.additional_quantity }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% for task in tasks %}
 <div class="modal fade" id="taskModal{{ task.id }}" tabindex="-1" aria-hidden="true">
