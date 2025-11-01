@@ -6,7 +6,13 @@
     <h1 class="h3 mb-0">{{ visit.name }} · {{ visit.aircraft.tail_number }}</h1>
     <p class="text-muted mb-0">Type {{ visit.vp_type }} · {{ visit.status }}</p>
   </div>
-  <a class="btn btn-secondary" href="{{ url_for('maintenance.index') }}">Retour liste</a>
+  <div class="btn-group">
+    <a class="btn btn-secondary" href="{{ url_for('maintenance.index') }}">Retour liste</a>
+    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editVisitModal">Modifier</button>
+    <form class="d-inline" method="post" action="{{ url_for('maintenance.delete_visit', visit_id=visit.id) }}" onsubmit="return confirm('Supprimer cette visite et toutes ses tâches ?');">
+      <button class="btn btn-outline-danger" type="submit">Supprimer</button>
+    </form>
+  </div>
 </div>
 {% endblock %}
 {% block page_content %}
@@ -25,10 +31,64 @@
           <dt class="col-5">Personnel engagé</dt>
           <dd class="col-7">{{ visit.active_personnel()|length }}</dd>
           <dt class="col-5">Tâches</dt>
-          <dd class="col-7">{{ visit.tasks.count() }}</dd>
+          <dd class="col-7">{{ tasks|length }}</dd>
+          <dt class="col-5">Périodicité</dt>
+          <dd class="col-7">{% if periodicity_months %}{{ periodicity_months }} mois{% else %}—{% endif %}</dd>
         </dl>
       </div>
     </div>
+    {% if package_codes %}
+    <div class="card shadow-sm mt-3">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0">Package SMP515</h2>
+        <form method="post" action="{{ url_for('maintenance.sync_package', visit_id=visit.id) }}">
+          <button class="btn btn-sm btn-outline-primary" type="submit">Synchroniser</button>
+        </form>
+      </div>
+      <div class="card-body">
+        <p class="mb-2">{{ package_status.completed }} terminées / {{ package_status.total }} prévues.</p>
+        {% if package_status.missing %}
+          <div class="alert alert-warning small">
+            Job cards absentes de l'archive : {{ package_status.missing|join(', ') }}
+          </div>
+        {% endif %}
+        <div class="table-responsive" style="max-height: 220px;">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Réf.</th>
+                <th>Titre</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in package_status.overview %}
+                <tr>
+                  <td class="fw-semibold">{{ item.code }}</td>
+                  <td>
+                    {% if item.job_card %}
+                      {{ item.job_card.title }}
+                    {% else %}
+                      <span class="text-muted">À compléter</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if item.status == 'completed' %}
+                      <span class="badge bg-success">Terminée</span>
+                    {% elif item.status == 'missing' %}
+                      <span class="badge bg-warning text-dark">À créer</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ item.status }}</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
     <div class="card shadow-sm mt-3">
       <div class="card-header bg-white">
         <h2 class="h5 mb-0">Nouvelle tâche</h2>
@@ -89,7 +149,7 @@
     <div class="card shadow-sm">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <h2 class="h5 mb-0">Tâches de la visite</h2>
-        <span class="badge bg-primary">{{ visit.tasks.count() }} tâches</span>
+        <span class="badge bg-primary">{{ tasks|length }} tâches</span>
       </div>
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -102,17 +162,21 @@
               <th>Statut</th>
               <th>Heures</th>
               <th>Matériel</th>
+              <th>Origine</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {% for task in visit.tasks %}
+            {% for task in tasks %}
               <tr>
                 <td>{{ task.name }}</td>
                 <td>
                   {% if task.job_card %}
                     <div class="fw-semibold">{{ task.job_card.card_number }}</div>
                     <div class="text-muted small">{{ task.job_card.title }}</div>
+                  {% elif task.package_code %}
+                    <div class="fw-semibold">{{ task.package_code }}</div>
+                    <div class="text-muted small">Job card à renseigner</div>
                   {% else %}
                     <span class="badge bg-light text-dark">Ad hoc</span>
                   {% endif %}
@@ -125,25 +189,133 @@
                   {% if task.materials.count() %}
                     <ul class="list-unstyled mb-0">
                       {% for req in task.materials %}
-                        <li>{{ req.material.designation }} · {{ req.quantity }}</li>
+                        <li class="d-flex justify-content-between align-items-center">
+                          <span>{{ req.material.designation }} · {{ req.quantity }}</span>
+                          <form method="post" action="{{ url_for('maintenance.delete_task_material', requirement_id=req.id) }}" class="ms-2">
+                            <button class="btn btn-link btn-sm text-danger p-0" type="submit">Retirer</button>
+                          </form>
+                        </li>
                       {% endfor %}
                     </ul>
                   {% else %}
                     <span class="text-muted">—</span>
                   {% endif %}
                 </td>
+                <td>
+                  {% if task.is_package_item %}
+                    <span class="badge bg-info text-dark">Package</span>
+                  {% else %}
+                    <span class="badge bg-light text-dark">Complément</span>
+                  {% endif %}
+                </td>
                 <td class="text-end">
-                  <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#taskModal{{ task.id }}">Mettre à jour</button>
+                  <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#taskModal{{ task.id }}">Mettre à jour</button>
+                    <form class="d-inline" method="post" action="{{ url_for('maintenance.delete_task', task_id=task.id) }}" onsubmit="return confirm('Supprimer définitivement cette tâche ?');">
+                      <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
-      </div>
+    </div>
+  </div>
+{% if material_totals %}
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-white">
+      <h2 class="h5 mb-0">Synthèse matériel</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Désignation</th>
+            <th>Package</th>
+            <th>Compléments</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in material_totals %}
+            <tr>
+              <td>{{ item.material.designation }}</td>
+              <td>{{ item.job_card_quantity }}</td>
+              <td>{{ item.additional_quantity }}</td>
+              <td>{{ item.job_card_quantity + item.additional_quantity }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+</div>
+<div class="modal fade" id="editVisitModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('maintenance.update_visit', visit_id=visit.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Modifier la visite</h5>
+          <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Nom</label>
+              <input class="form-control" name="name" value="{{ visit.name }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Type</label>
+              <select class="form-select" name="vp_type">
+                {% for option in ['A','B','C','D1','D2','Inspection spéciale'] %}
+                  <option value="{{ option }}" {% if visit.vp_type == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Statut</label>
+              <select class="form-select" name="status">
+                {% for option in ['planned','ongoing','completed','cancelled'] %}
+                  <option value="{{ option }}" {% if visit.status == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-6">
+              <label class="form-label">Aéronef</label>
+              <select class="form-select" name="aircraft_id">
+                {% for aircraft in aircrafts %}
+                  <option value="{{ aircraft.id }}" {% if visit.aircraft_id == aircraft.id %}selected{% endif %}>{{ aircraft.tail_number }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Début</label>
+              <input class="form-control" type="date" name="start_date" value="{{ visit.start_date.isoformat() }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Fin prévue</label>
+              <input class="form-control" type="date" name="end_date" value="{{ visit.end_date.isoformat() if visit.end_date else '' }}">
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="3">{{ visit.description or '' }}</textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Annuler</button>
+          <button class="btn btn-primary" type="submit">Enregistrer</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
-{% for task in visit.tasks %}
+{% for task in tasks %}
 <div class="modal fade" id="taskModal{{ task.id }}" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -161,6 +333,50 @@
             <a class="btn btn-sm btn-outline-primary" href="{{ url_for('archive.index', search=task.job_card.card_number) }}">Ouvrir l'archive</a>
           </div>
         {% endif %}
+        <form class="mb-4" method="post" action="{{ url_for('maintenance.update_task', task_id=task.id) }}">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Intitulé</label>
+              <input class="form-control" name="name" value="{{ task.name }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Job card liée</label>
+              <select class="form-select" name="job_card_id">
+                <option value="">Sans</option>
+                {% for card in job_cards %}
+                  <option value="{{ card.id }}" {% if task.job_card_id == card.id %}selected{% endif %}>{{ card.card_number }} · {{ card.title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-4">
+              <label class="form-label">Atelier</label>
+              <select class="form-select" name="workshop_id">
+                <option value="">Non assigné</option>
+                {% for workshop in workshops %}
+                  <option value="{{ workshop.id }}" {% if task.workshop_id == workshop.id %}selected{% endif %}>{{ workshop.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Chef d'équipe</label>
+              <select class="form-select" name="lead_id">
+                <option value="">Non assigné</option>
+                {% for person in personnel %}
+                  <option value="{{ person.id }}" {% if task.lead_id == person.id %}selected{% endif %}>{{ person.full_name }} ({{ person.rank }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Heures estimées</label>
+              <input class="form-control" type="number" step="0.5" name="estimated_hours" value="{{ task.estimated_hours }}">
+            </div>
+          </div>
+          <div class="text-end mt-3">
+            <button class="btn btn-primary" type="submit">Mettre à jour la tâche</button>
+          </div>
+        </form>
         <form class="mb-4" method="post" action="{{ url_for('maintenance.update_task_status', task_id=task.id) }}">
           <div class="row g-2">
             <div class="col-md-4">

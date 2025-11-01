@@ -1,9 +1,12 @@
 {% extends 'layout.html' %}
 {% block title %}Ateliers{% endblock %}
 {% block page_header %}
-<div class="mb-3">
-  <h1 class="h3 mb-0">Ateliers de maintenance</h1>
-  <p class="text-muted mb-0">Organisation par spécialité et ressources associées.</p>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-0">Ateliers de maintenance</h1>
+    <p class="text-muted mb-0">Organisation par spécialité et ressources associées.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createWorkshopModal">Nouvel atelier</button>
 </div>
 {% endblock %}
 {% block page_content %}
@@ -22,5 +25,31 @@
       </div>
     </div>
   {% endfor %}
+</div>
+<div class="modal fade" id="createWorkshopModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('workshops.create') }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Créer un atelier</h5>
+          <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nom</label>
+            <input class="form-control" name="name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="3" placeholder="Domaines de compétence"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Annuler</button>
+          <button class="btn btn-primary" type="submit">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}

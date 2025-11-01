@@ -54,7 +54,17 @@
                   {% endif %}
                 </td>
                 <td class="text-end">
-                  <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#statusModal{{ user.id }}">Mettre à jour</button>
+                  {% if manage_mode %}
+                    <div class="btn-group">
+                      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editUserModal{{ user.id }}">Modifier</button>
+                      <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#statusModal{{ user.id }}">Statut</button>
+                      <form class="d-inline" method="post" action="{{ url_for('auth.delete_user', user_id=user.id) }}" onsubmit="return confirm('Supprimer ce compte utilisateur ?');">
+                        <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+                      </form>
+                    </div>
+                  {% else %}
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#statusModal{{ user.id }}">Mettre à jour</button>
+                  {% endif %}
                 </td>
               </tr>
             {% endfor %}
@@ -165,5 +175,58 @@
     </div>
   </div>
 </div>
+{% for user in users %}
+<div class="modal fade" id="editUserModal{{ user.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('auth.update_user', user_id=user.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Modifier {{ user.full_name }}</h5>
+          <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nom d'utilisateur</label>
+            <input class="form-control" name="username" value="{{ user.username }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nom complet</label>
+            <input class="form-control" name="full_name" value="{{ user.full_name }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Grade</label>
+            <input class="form-control" name="rank" value="{{ user.rank }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Rôle</label>
+            <select class="form-select" name="role" required>
+              {% for role in roles %}
+                <option value="{{ role.name }}" {% if user.role_id == role.id %}selected{% endif %}>{{ role.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Atelier</label>
+            <select class="form-select" name="workshop_id">
+              <option value="">Non affecté</option>
+              {% for workshop in workshops %}
+                <option value="{{ workshop.id }}" {% if user.workshop_id == workshop.id %}selected{% endif %}>{{ workshop.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nouveau mot de passe</label>
+            <input class="form-control" type="password" name="password" placeholder="Laisser vide pour conserver l'actuel">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Annuler</button>
+          <button class="btn btn-primary" type="submit">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
 {% endif %}
 {% endblock %}
