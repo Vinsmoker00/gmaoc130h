@@ -24,7 +24,6 @@
         <th>Date</th>
         <th>Pièces jointes</th>
         <th>Structure</th>
-        <th class="text-end">Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -63,14 +62,6 @@
           </td>
           <td class="text-end">
             <a class="btn btn-sm btn-outline-primary" href="{{ url_for('archive.card_detail', card_id=card.id) }}">Structure</a>
-          </td>
-          <td class="text-end">
-            <div class="btn-group">
-              <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editCardModal{{ card.id }}">Modifier</button>
-              <form method="post" action="{{ url_for('archive.delete_card', card_id=card.id) }}" onsubmit="return confirm('Supprimer définitivement cette job card ?');">
-                <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
-              </form>
-            </div>
           </td>
         </tr>
       {% endfor %}

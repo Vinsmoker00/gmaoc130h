@@ -92,7 +92,6 @@ def detail(visit_id: int):
     materials = Material.query.order_by(Material.designation).all()
     statuses = PersonnelStatus.query.filter_by(status="on-site").all()
     job_cards = JobCard.query.order_by(JobCard.card_number).all()
-    aircrafts = Aircraft.query.order_by(Aircraft.tail_number).all()
     tasks = visit.tasks.order_by(MaintenanceTask.name).all()
     package_codes = package_for_visit(visit.vp_type)
     package_status = _package_status(visit, tasks, package_codes)
@@ -106,47 +105,12 @@ def detail(visit_id: int):
         materials=materials,
         statuses=statuses,
         job_cards=job_cards,
-        aircrafts=aircrafts,
         tasks=tasks,
         package_status=package_status,
         package_codes=package_codes,
         material_totals=material_totals,
         periodicity_months=periodicity,
     )
-
-
-@bp.route("/<int:visit_id>/update", methods=["POST"])
-@login_required
-def update_visit(visit_id: int):
-    visit = MaintenanceVisit.query.get_or_404(visit_id)
-    visit.name = (request.form.get("name") or visit.name).strip()
-    visit.vp_type = request.form.get("vp_type", visit.vp_type)
-    visit.status = request.form.get("status", visit.status)
-    visit.description = (request.form.get("description") or "").strip() or None
-    aircraft_id = request.form.get("aircraft_id", type=int)
-    if aircraft_id:
-        visit.aircraft_id = aircraft_id
-    start_date = request.form.get("start_date")
-    end_date = request.form.get("end_date")
-    if start_date:
-        visit.start_date = date.fromisoformat(start_date)
-    if end_date == "":
-        visit.end_date = None
-    elif end_date:
-        visit.end_date = date.fromisoformat(end_date)
-    db.session.commit()
-    flash("Visite mise à jour", "success")
-    return redirect(url_for("maintenance.detail", visit_id=visit.id))
-
-
-@bp.route("/<int:visit_id>/delete", methods=["POST"])
-@login_required
-def delete_visit(visit_id: int):
-    visit = MaintenanceVisit.query.get_or_404(visit_id)
-    db.session.delete(visit)
-    db.session.commit()
-    flash("Visite supprimée", "success")
-    return redirect(url_for("maintenance.index"))
 
 
 @bp.route("/<int:visit_id>/package/sync", methods=["POST"])
@@ -277,17 +241,6 @@ def update_task_materials(task_id: int):
     db.session.commit()
     flash("Besoin en matériel mis à jour", "success")
     return redirect(url_for("maintenance.detail", visit_id=task.visit_id))
-
-
-@bp.route("/materials/<int:requirement_id>/delete", methods=["POST"])
-@login_required
-def delete_task_material(requirement_id: int):
-    requirement = MaterialRequirement.query.get_or_404(requirement_id)
-    visit_id = requirement.task.visit_id
-    db.session.delete(requirement)
-    db.session.commit()
-    flash("Besoin supprimé", "success")
-    return redirect(url_for("maintenance.detail", visit_id=visit_id))
 
 
 def _populate_visit_from_package(visit: MaintenanceVisit):

@@ -70,30 +70,6 @@ def card_detail(card_id: int):
     )
 
 
-@bp.route("/<int:card_id>/update", methods=["POST"])
-@login_required
-def update_card(card_id: int):
-    card = JobCard.query.get_or_404(card_id)
-    card.card_number = (request.form.get("card_number") or card.card_number).strip()
-    card.title = (request.form.get("title") or card.title).strip()
-    card.revision = (request.form.get("revision") or "").strip() or None
-    card.summary = (request.form.get("summary") or "").strip() or None
-    card.content = (request.form.get("content") or "").strip() or None
-    db.session.commit()
-    flash("Job card mise à jour", "success")
-    return redirect(url_for("archive.card_detail", card_id=card.id))
-
-
-@bp.route("/<int:card_id>/delete", methods=["POST"])
-@login_required
-def delete_card(card_id: int):
-    card = JobCard.query.get_or_404(card_id)
-    db.session.delete(card)
-    db.session.commit()
-    flash("Job card supprimée", "success")
-    return redirect(url_for("archive.index"))
-
-
 @bp.route("/create", methods=["POST"])
 @login_required
 def create():
@@ -202,33 +178,6 @@ def add_paragraph(card_id: int):
     return redirect(url_for("archive.card_detail", card_id=card.id))
 
 
-@bp.route("/paragraphs/<int:paragraph_id>/update", methods=["POST"])
-@login_required
-def update_paragraph(paragraph_id: int):
-    paragraph = JobCardParagraph.query.get_or_404(paragraph_id)
-    paragraph.title = (request.form.get("title") or paragraph.title).strip()
-    paragraph.description = (request.form.get("description") or "").strip() or None
-    paragraph.order_index = request.form.get("order_index", type=int, default=paragraph.order_index)
-    paragraph.workshop_id = request.form.get("workshop_id", type=int)
-    paragraph.estimated_minutes = request.form.get(
-        "estimated_minutes", type=int, default=paragraph.estimated_minutes
-    )
-    db.session.commit()
-    flash("Paragraphe mis à jour.", "success")
-    return redirect(url_for("archive.card_detail", card_id=paragraph.job_card_id))
-
-
-@bp.route("/paragraphs/<int:paragraph_id>/delete", methods=["POST"])
-@login_required
-def delete_paragraph(paragraph_id: int):
-    paragraph = JobCardParagraph.query.get_or_404(paragraph_id)
-    card_id = paragraph.job_card_id
-    db.session.delete(paragraph)
-    db.session.commit()
-    flash("Paragraphe supprimé.", "success")
-    return redirect(url_for("archive.card_detail", card_id=card_id))
-
-
 @bp.route("/<int:card_id>/steps", methods=["POST"])
 @login_required
 def add_step(card_id: int):
@@ -259,32 +208,6 @@ def add_step(card_id: int):
     return redirect(url_for("archive.card_detail", card_id=card.id))
 
 
-@bp.route("/steps/<int:step_id>/update", methods=["POST"])
-@login_required
-def update_step(step_id: int):
-    step = JobCardStep.query.get_or_404(step_id)
-    step.title = (request.form.get("title") or "").strip() or None
-    step.description = (request.form.get("description") or step.description).strip()
-    step.order_index = request.form.get("order_index", type=int, default=step.order_index)
-    step.workshop_id = request.form.get("workshop_id", type=int)
-    step.estimated_minutes = request.form.get("estimated_minutes", type=int, default=step.estimated_minutes)
-    step.paragraph_id = request.form.get("paragraph_id", type=int)
-    db.session.commit()
-    flash("Étape mise à jour.", "success")
-    return redirect(url_for("archive.card_detail", card_id=step.job_card_id))
-
-
-@bp.route("/steps/<int:step_id>/delete", methods=["POST"])
-@login_required
-def delete_step(step_id: int):
-    step = JobCardStep.query.get_or_404(step_id)
-    card_id = step.job_card_id
-    db.session.delete(step)
-    db.session.commit()
-    flash("Étape supprimée.", "success")
-    return redirect(url_for("archive.card_detail", card_id=card_id))
-
-
 @bp.route("/<int:card_id>/substeps", methods=["POST"])
 @login_required
 def add_substep(card_id: int):
@@ -310,32 +233,6 @@ def add_substep(card_id: int):
     db.session.commit()
     flash("Sous-étape ajoutée.", "success")
     return redirect(url_for("archive.card_detail", card_id=card.id))
-
-
-@bp.route("/substeps/<int:substep_id>/update", methods=["POST"])
-@login_required
-def update_substep(substep_id: int):
-    substep = JobCardSubstep.query.get_or_404(substep_id)
-    substep.description = (request.form.get("description") or substep.description).strip()
-    substep.order_index = request.form.get("order_index", type=int, default=substep.order_index)
-    substep.workshop_id = request.form.get("workshop_id", type=int)
-    substep.estimated_minutes = request.form.get(
-        "estimated_minutes", type=int, default=substep.estimated_minutes
-    )
-    db.session.commit()
-    flash("Sous-étape mise à jour.", "success")
-    return redirect(url_for("archive.card_detail", card_id=substep.job_card_id))
-
-
-@bp.route("/substeps/<int:substep_id>/delete", methods=["POST"])
-@login_required
-def delete_substep(substep_id: int):
-    substep = JobCardSubstep.query.get_or_404(substep_id)
-    card_id = substep.job_card_id
-    db.session.delete(substep)
-    db.session.commit()
-    flash("Sous-étape supprimée.", "success")
-    return redirect(url_for("archive.card_detail", card_id=card_id))
 
 
 @bp.route("/<int:card_id>/materials", methods=["POST"])
@@ -381,14 +278,3 @@ def add_job_card_material(card_id: int):
     db.session.commit()
     flash("Matériel associé.", "success")
     return redirect(url_for("archive.card_detail", card_id=card.id))
-
-
-@bp.route("/materials/<int:assignment_id>/delete", methods=["POST"])
-@login_required
-def delete_job_card_material(assignment_id: int):
-    assignment = JobCardMaterial.query.get_or_404(assignment_id)
-    card_id = assignment.job_card_id
-    db.session.delete(assignment)
-    db.session.commit()
-    flash("Association matériel supprimée.", "success")
-    return redirect(url_for("archive.card_detail", card_id=card_id))

@@ -36,6 +36,8 @@
         <th>Att. RPN</th>
         <th>En RPN</th>
         <th>Stock</th>
+        <th>Consommation annuelle</th>
+        <th></th>
         <th class="text-end">Actions</th>
       </tr>
     </thead>
@@ -50,13 +52,12 @@
           <td>{{ material.unavailable_for_repair }}</td>
           <td>{{ material.in_repair }}</td>
           <td>{{ material.stock }}</td>
+          <td>{{ material.annual_consumption }}</td>
+          <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('materials.detail', material_id=material.id) }}">Fiche</a></td>
           <td class="text-end">
-            <div class="btn-group btn-group-sm">
-              <a class="btn btn-outline-primary" href="{{ url_for('materials.detail', material_id=material.id) }}">Voir</a>
-              <form method="post" action="{{ url_for('materials.delete', material_id=material.id) }}" onsubmit="return confirm('Supprimer ce matériel ?');">
-                <button class="btn btn-outline-danger" type="submit">Supprimer</button>
-              </form>
-            </div>
+            <form method="post" action="{{ url_for('materials.delete', material_id=material.id) }}" onsubmit="return confirm('Supprimer ce matériel ?');">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+            </form>
           </td>
         </tr>
       {% endfor %}
