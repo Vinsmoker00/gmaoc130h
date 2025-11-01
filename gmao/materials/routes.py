@@ -24,24 +24,54 @@ def index():
 @bp.route("/create", methods=["POST"])
 @login_required
 def create():
-    designation = request.form.get("designation")
-    category = request.form.get("category")
+    designation = (request.form.get("designation") or "").strip()
+    category = (request.form.get("category") or "").strip()
     if not designation or not category:
         flash("Les champs désignation et catégorie sont obligatoires", "danger")
         return redirect(url_for("materials.index"))
 
+    def parse_int_field(name: str, default: int = 0) -> int:
+        value = request.form.get(name)
+        if value is None:
+            return default
+        value = value.strip()
+        if value == "":
+            return default
+        try:
+            return int(value)
+        except ValueError:
+            return default
+
+    def parse_string_field(name: str) -> Optional[str]:
+        value = request.form.get(name)
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
     material = Material(
         designation=designation,
         category=category,
-        part_number=request.form.get("part_number"),
-        serial_number=request.form.get("serial_number"),
-        dotation=int(request.form.get("dotation", 0)),
-        avionnee=int(request.form.get("avionnee", 0)),
-        stock=int(request.form.get("stock", 0)),
-        consumable_stock=int(request.form.get("consumable_stock", 0)),
-        consumable_dotation=int(request.form.get("consumable_dotation", 0)),
-        consumable_type=request.form.get("consumable_type"),
-        annual_consumption=int(request.form.get("annual_consumption", 0)),
+        part_number=parse_string_field("part_number"),
+        serial_number=parse_string_field("serial_number"),
+        nsn=parse_string_field("nsn"),
+        niin=parse_string_field("niin"),
+        fsc=parse_string_field("fsc"),
+        cage_code=parse_string_field("cage_code"),
+        dotation=parse_int_field("dotation"),
+        avionnee=parse_int_field("avionnee"),
+        stock=parse_int_field("stock"),
+        unavailable_for_repair=parse_int_field("unavailable_for_repair"),
+        in_repair=parse_int_field("in_repair"),
+        annual_consumption=parse_int_field("annual_consumption"),
+        consumable_stock=parse_int_field("consumable_stock"),
+        consumable_dotation=parse_int_field("consumable_dotation"),
+        consumable_type=parse_string_field("consumable_type"),
+        contract_type=parse_string_field("contract_type"),
+        da_reference=parse_string_field("da_reference"),
+        da_status=parse_string_field("da_status"),
+        per_aircraft=parse_int_field("per_aircraft", default=1),
+        warranty=request.form.get("warranty") == "on",
     )
     db.session.add(material)
     db.session.commit()
@@ -61,7 +91,8 @@ def detail(material_id: int):
 @login_required
 def update(material_id: int):
     material = Material.query.get_or_404(material_id)
-    fields = [
+
+    int_fields = [
         "dotation",
         "avionnee",
         "stock",
@@ -74,20 +105,20 @@ def update(material_id: int):
         "consumable_stock",
         "consumable_dotation",
     ]
-    for field in fields:
-        if field in request.form:
-            setattr(material, field, int(request.form[field]))
+    for field in int_fields:
+        if field in request.form and request.form[field] != "":
+            setattr(material, field, request.form.get(field, type=int))
 
     def cleaned_value(field_name: str) -> Optional[str]:
         if field_name not in request.form:
             return getattr(material, field_name)
-        value = request.form.get(field_name, "")
-        if value is None:
-            return getattr(material, field_name)
-        value = value.strip()
+        value = (request.form.get(field_name) or "").strip()
         return value or None
 
     string_fields = [
+        "designation",
+        "part_number",
+        "serial_number",
         "nsn",
         "niin",
         "fsc",
@@ -97,9 +128,24 @@ def update(material_id: int):
         "contract_type",
         "consumable_type",
     ]
-
     for field in string_fields:
         setattr(material, field, cleaned_value(field))
+
+    if "category" in request.form and request.form["category"]:
+        material.category = request.form["category"]
+
+    material.warranty = request.form.get("warranty") == "on"
+
     db.session.commit()
-    flash("Stock mis à jour", "success")
+    flash("Fiche matériel mise à jour", "success")
     return redirect(url_for("materials.detail", material_id=material_id))
+
+
+@bp.route("/<int:material_id>/delete", methods=["POST"])
+@login_required
+def delete(material_id: int):
+    material = Material.query.get_or_404(material_id)
+    db.session.delete(material)
+    db.session.commit()
+    flash("Matériel supprimé", "success")
+    return redirect(url_for("materials.index"))

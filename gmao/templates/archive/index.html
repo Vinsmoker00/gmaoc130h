@@ -23,6 +23,8 @@
         <th>Révision</th>
         <th>Date</th>
         <th>Pièces jointes</th>
+        <th>Structure</th>
+        <th class="text-end">Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -37,11 +39,16 @@
             {% if attachments %}
               <ul class="list-unstyled mb-2 small">
                 {% for att in attachments %}
-                  <li>
-                    <a class="link-primary" href="{{ url_for('archive.download_attachment', attachment_id=att.id) }}">
-                      {{ att.original_name or att.filename }}
-                    </a>
-                    <span class="text-muted">· {{ att.uploaded_at.strftime('%d/%m/%Y') }}</span>
+                  <li class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <a class="link-primary" href="{{ url_for('archive.download_attachment', attachment_id=att.id) }}">
+                        {{ att.original_name or att.filename }}
+                      </a>
+                      <span class="text-muted">· {{ att.uploaded_at.strftime('%d/%m/%Y') }}</span>
+                    </div>
+                    <form class="d-inline" method="post" action="{{ url_for('archive.delete_attachment', attachment_id=att.id) }}" onsubmit="return confirm('Retirer cette pièce jointe ?');">
+                      <button class="btn btn-link btn-sm text-danger p-0" type="submit">Supprimer</button>
+                    </form>
                   </li>
                 {% endfor %}
               </ul>
@@ -53,6 +60,17 @@
               <button class="btn btn-outline-primary" type="submit">Ajouter</button>
             </form>
             <div class="form-text">PDF uniquement</div>
+          </td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('archive.card_detail', card_id=card.id) }}">Structure</a>
+          </td>
+          <td class="text-end">
+            <div class="btn-group">
+              <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editCardModal{{ card.id }}">Modifier</button>
+              <form method="post" action="{{ url_for('archive.delete_card', card_id=card.id) }}" onsubmit="return confirm('Supprimer définitivement cette job card ?');">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+              </form>
+            </div>
           </td>
         </tr>
       {% endfor %}
@@ -97,4 +115,44 @@
     </div>
   </div>
 </div>
+{% for card in cards %}
+<div class="modal fade" id="editCardModal{{ card.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('archive.update_card', card_id=card.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Modifier {{ card.card_number }}</h5>
+          <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Numéro</label>
+            <input class="form-control" name="card_number" value="{{ card.card_number }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Titre</label>
+            <input class="form-control" name="title" value="{{ card.title }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Révision</label>
+            <input class="form-control" name="revision" value="{{ card.revision or '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Résumé</label>
+            <textarea class="form-control" rows="3" name="summary">{{ card.summary or '' }}</textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Contenu</label>
+            <textarea class="form-control" rows="5" name="content">{{ card.content or '' }}</textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Annuler</button>
+          <button class="btn btn-primary" type="submit">Sauvegarder</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
 {% endblock %}
