@@ -1,180 +1,326 @@
 {% extends 'layout.html' %}
-{% block title %}{{ material.designation }} - Matériel{% endblock %}
+{% block title %}{{ material.designation }} · Matériel{% endblock %}
 {% block page_header %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
   <div>
-    <h1 class="h3 mb-0">{{ material.designation }}</h1>
-    <p class="text-muted mb-0">PN {{ material.part_number or 'N/A' }} · Catégorie {{ material.category }}</p>
+    <h1 class="h3 mb-1">{{ material.designation }}</h1>
+    <p class="text-muted mb-0">Catégorie {{ material.category|capitalize }} · PN {{ material.part_number or 'N/A' }}</p>
   </div>
-  <div class="btn-group">
-    <a class="btn btn-secondary" href="{{ url_for('materials.index') }}">Retour</a>
-    <form class="d-inline" method="post" action="{{ url_for('materials.delete', material_id=material.id) }}" onsubmit="return confirm('Supprimer ce matériel et ses liaisons ?');">
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{{ url_for('materials.index', category=material.category) }}">Retour</a>
+    <form class="d-inline" method="post" action="{{ url_for('materials.delete', material_id=material.id) }}" onsubmit="return confirm('Supprimer ce matériel et ses numéros de série ?');">
       <button class="btn btn-outline-danger" type="submit">Supprimer</button>
     </form>
   </div>
 </div>
 {% endblock %}
 {% block page_content %}
+{% if issues %}
+  <div class="alert alert-warning" role="alert">
+    <h2 class="h6 mb-2">Points de vigilance</h2>
+    <ul class="mb-0 ps-3">
+      {% for issue in issues %}
+        <li>{{ issue }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
 <div class="row g-3">
-  <div class="col-lg-6">
-    <div class="card shadow-sm">
+  <div class="col-xl-6">
+    <div class="card shadow-sm h-100">
       <div class="card-header bg-white">
-        <h2 class="h5 mb-0">Données logistiques</h2>
+        <h2 class="h5 mb-0">Fiche logistique</h2>
       </div>
       <div class="card-body">
-        <form method="post" action="{{ url_for('materials.update', material_id=material.id) }}">
-          <div class="row g-2 mb-3">
+        <form method="post" action="{{ url_for('materials.update', material_id=material.id) }}" id="materialUpdateForm">
+          <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">Désignation</label>
-              <input class="form-control" name="designation" value="{{ material.designation }}" required>
+              <label class="form-label" for="designationUpdate">Désignation</label>
+              <input class="form-control" id="designationUpdate" name="designation" value="{{ material.designation }}" required>
             </div>
             <div class="col-md-3">
-              <label class="form-label">PN</label>
-              <input class="form-control" name="part_number" value="{{ material.part_number or '' }}">
+              <label class="form-label" for="pnUpdate">PN</label>
+              <input class="form-control" id="pnUpdate" name="part_number" value="{{ material.part_number or '' }}">
             </div>
             <div class="col-md-3">
-              <label class="form-label">SN</label>
-              <input class="form-control" name="serial_number" value="{{ material.serial_number or '' }}">
+              <label class="form-label" for="niinUpdate">NIIN</label>
+              <input class="form-control" id="niinUpdate" name="niin" value="{{ material.niin or '' }}">
             </div>
           </div>
-          <div class="row g-2 mb-3">
+          <div class="row g-3 mt-1">
+            <div class="col-md-3">
+              <label class="form-label" for="nsnUpdate">NSN</label>
+              <input class="form-control" id="nsnUpdate" name="nsn" value="{{ material.nsn or '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="fscUpdate">FSC</label>
+              <input class="form-control" id="fscUpdate" name="fsc" value="{{ material.fsc or '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="cageUpdate">Code CAGE</label>
+              <input class="form-control" id="cageUpdate" name="cage_code" value="{{ material.cage_code or '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="serialUpdate">Référence interne</label>
+              <input class="form-control" id="serialUpdate" name="serial_number" value="{{ material.serial_number or '' }}">
+            </div>
+          </div>
+          <div class="row g-3 mt-1">
             <div class="col-md-4">
-              <label class="form-label">Catégorie</label>
-              <select class="form-select" name="category" required>
-                {% for option in ['reparable','consommable','outillage','banc d\'essai'] %}
-                  <option value="{{ option }}" {% if material.category == option %}selected{% endif %}>{{ option|capitalize }}</option>
+              <label class="form-label" for="categoryUpdate">Catégorie</label>
+              <select class="form-select" id="categoryUpdate" name="category">
+                {% for cat in ['reparable','consommable','outillage','banc d\'essai'] %}
+                  <option value="{{ cat }}" {% if material.category == cat %}selected{% endif %}>{{ cat|capitalize }}</option>
                 {% endfor %}
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label">Qté / avion</label>
-              <input class="form-control" type="number" min="0" name="per_aircraft" value="{{ material.per_aircraft }}">
+              <label class="form-label" for="workshopUpdate">Atelier</label>
+              <select class="form-select" id="workshopUpdate" name="workshop_id">
+                <option value="">Non renseigné</option>
+                {% for wk in workshops %}
+                  <option value="{{ wk.id }}" {% if material.workshop_id == wk.id %}selected{% endif %}>{{ wk.name }}</option>
+                {% endfor %}
+              </select>
             </div>
-            <div class="col-md-4 d-flex align-items-end">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="warranty" id="warrantyToggle" {% if material.warranty %}checked{% endif %}>
-                <label class="form-check-label" for="warrantyToggle">Sous garantie</label>
+            <div class="col-md-4 d-flex align-items-center">
+              <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" id="warrantyUpdate" name="warranty" {% if material.warranty %}checked{% endif %}>
+                <label class="form-check-label" for="warrantyUpdate">Sous garantie</label>
               </div>
             </div>
           </div>
-          <div class="row g-2 mb-3">
-            <div class="col-md-6">
-              <label class="form-label">NSN</label>
-              <input class="form-control" name="nsn" value="{{ material.nsn or '' }}" maxlength="30" placeholder="1234-00-123-4567">
-              <div class="form-text">13 caractères, format classique 4-2-3-4.</div>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">NIIN</label>
-              <input class="form-control" name="niin" value="{{ material.niin or '' }}" maxlength="30" placeholder="00-123-4567">
-              <div class="form-text">9 chiffres (y compris code pays) ou laissez vide.</div>
-            </div>
-          </div>
-          <div class="row g-2 mb-3">
-            <div class="col-md-6">
-              <label class="form-label">FSC</label>
-              <input class="form-control" name="fsc" value="{{ material.fsc or '' }}" maxlength="20" placeholder="1234">
-              <div class="form-text">4 chiffres pour la classe fédérale d'approvisionnement.</div>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Code CAGE</label>
-              <input class="form-control" name="cage_code" value="{{ material.cage_code or '' }}" maxlength="30" placeholder="1A234">
-              <div class="form-text">5 caractères alphanumériques identifiant le fournisseur.</div>
+
+          <div class="category-section mt-3" data-category="reparable">
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" for="perAircraftUpdate">Qté / avion</label>
+                <input class="form-control" id="perAircraftUpdate" name="per_aircraft" type="number" min="0" value="{{ material.per_aircraft }}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="annualUpdate">Consommation annuelle</label>
+                <input class="form-control" id="annualUpdate" name="annual_consumption" type="number" min="0" value="{{ material.annual_consumption }}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Dotation contrôlée</label>
+                <input class="form-control" value="{{ material.dotation }}" disabled>
+                <div class="form-text">Calcul automatique via les numéros de série.</div>
+              </div>
             </div>
           </div>
-          <div class="row g-2 mb-3">
-            <div class="col-md-6">
-              <label class="form-label">Référence DA</label>
-              <input class="form-control" name="da_reference" value="{{ material.da_reference or '' }}" maxlength="80" placeholder="DA-2024-00123">
-              <div class="form-text">Numéro de la demande d'achat (laisser vide pour supprimer).</div>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Statut DA</label>
-              <input class="form-control" name="da_status" value="{{ material.da_status or '' }}" maxlength="80" placeholder="En cours">
-              <div class="form-text">Ex. &laquo;&nbsp;En cours&nbsp;&raquo;, &laquo;&nbsp;Validé&nbsp;&raquo;, etc.</div>
-            </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Type de contrat</label>
-            <input class="form-control" name="contract_type" value="{{ material.contract_type or '' }}" maxlength="50" placeholder="FMS / MCO">
-            <div class="form-text">Catégorie contractuelle (laisser vide si non applicable).</div>
-          </div>
-          <div class="row g-2">
-            <div class="col">
-              <label class="form-label">Dotation</label>
-              <input class="form-control" type="number" name="dotation" value="{{ material.dotation }}">
-            </div>
-            <div class="col">
-              <label class="form-label">Stock</label>
-              <input class="form-control" type="number" name="stock" value="{{ material.stock }}">
+
+          <div class="category-section mt-3" data-category="consommable">
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" for="stockUpdate">Stock disponible</label>
+                <input class="form-control" id="stockUpdate" name="stock" type="number" min="0" value="{{ material.stock }}">
+              </div>
+              <div class="col-md-8">
+                <label class="form-label" for="rcaUpdate">Référence RCA / RCB</label>
+                <input class="form-control" id="rcaUpdate" name="rca_rcb_reference" value="{{ material.rca_rcb_reference or '' }}">
+              </div>
             </div>
           </div>
-          <div class="row g-2 mt-2">
-            <div class="col">
-              <label class="form-label">Avionnée</label>
-              <input class="form-control" type="number" name="avionnee" value="{{ material.avionnee }}">
-            </div>
-            <div class="col">
-              <label class="form-label">Indispo attente réparation</label>
-              <input class="form-control" type="number" name="unavailable_for_repair" value="{{ material.unavailable_for_repair }}">
-            </div>
-          </div>
-          <div class="row g-2 mt-2">
-            <div class="col">
-              <label class="form-label">En réparation</label>
-              <input class="form-control" type="number" name="in_repair" value="{{ material.in_repair }}">
-            </div>
-            <div class="col">
-              <label class="form-label">Litige</label>
-              <input class="form-control" type="number" name="litigation" value="{{ material.litigation }}">
+
+          <div class="category-section mt-3" data-category="outillage">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label" for="calibUpdate">Date de calibration</label>
+                <input class="form-control" id="calibUpdate" name="last_calibration_date" type="date" value="{{ material.last_calibration_date }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="expiryUpdate">Expiration</label>
+                <input class="form-control" id="expiryUpdate" name="calibration_expiration_date" type="date" value="{{ material.calibration_expiration_date }}">
+              </div>
             </div>
           </div>
-          <div class="row g-2 mt-2">
-            <div class="col">
-              <label class="form-label">Réforme</label>
-              <input class="form-control" type="number" name="scrapped" value="{{ material.scrapped }}">
-            </div>
-            <div class="col">
-              <label class="form-label">Consommation annuelle</label>
-              <input class="form-control" type="number" name="annual_consumption" value="{{ material.annual_consumption }}">
-            </div>
-          </div>
-          <div class="row g-2 mt-2">
-            <div class="col">
-              <label class="form-label">Stock consommable</label>
-              <input class="form-control" type="number" name="consumable_stock" value="{{ material.consumable_stock }}">
-            </div>
-            <div class="col">
-              <label class="form-label">Dotation consommable</label>
-              <input class="form-control" type="number" name="consumable_dotation" value="{{ material.consumable_dotation }}">
+
+          <div class="category-section mt-3" data-category="banc d'essai">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label" for="benchCalibUpdate">Date de calibration</label>
+                <input class="form-control" id="benchCalibUpdate" name="last_calibration_date" type="date" value="{{ material.last_calibration_date }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="benchExpiryUpdate">Expiration</label>
+                <input class="form-control" id="benchExpiryUpdate" name="calibration_expiration_date" type="date" value="{{ material.calibration_expiration_date }}">
+              </div>
             </div>
           </div>
-          <div class="mb-3 mt-2">
-            <label class="form-label">Type consommable</label>
-            <input class="form-control" name="consumable_type" value="{{ material.consumable_type or '' }}">
+
+          <div class="mt-3">
+            <label class="form-label" for="daReferenceUpdate">Référence DA</label>
+            <input class="form-control" id="daReferenceUpdate" name="da_reference" value="{{ material.da_reference or '' }}">
           </div>
-          <button class="btn btn-primary" type="submit">Sauvegarder</button>
+          <div class="mt-3">
+            <label class="form-label" for="daStatusUpdate">Statut DA</label>
+            <input class="form-control" id="daStatusUpdate" name="da_status" value="{{ material.da_status or '' }}">
+          </div>
+          <div class="mt-3">
+            <label class="form-label" for="contractUpdate">Type de contrat</label>
+            <input class="form-control" id="contractUpdate" name="contract_type" value="{{ material.contract_type or '' }}">
+          </div>
+
+          <div class="d-flex justify-content-end mt-4">
+            <button class="btn btn-primary" type="submit">Enregistrer</button>
+          </div>
         </form>
       </div>
     </div>
   </div>
-  <div class="col-lg-6">
+
+  <div class="col-xl-6">
+    {% if material.category == 'reparable' %}
+      <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white">
+          <h2 class="h5 mb-0">Synthèse dotation</h2>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 text-center">
+            <div class="col-6 col-md-4">
+              <div class="p-3 bg-light rounded">
+                <div class="text-muted small">Dotation</div>
+                <div class="fs-4 fw-semibold">{{ status_counts.get('avionnee', 0) + status_counts.get('att_rpn', 0) + status_counts.get('rpn', 0) + status_counts.get('litige', 0) + status_counts.get('nivellement', 0) + status_counts.get('stock', 0) + status_counts.get('sous_garantie', 0) }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-4">
+              <div class="p-3 bg-light rounded">
+                <div class="text-muted small">Avionnée</div>
+                <div class="fs-5">{{ status_counts.get('avionnee', 0) }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-4">
+              <div class="p-3 bg-light rounded">
+                <div class="text-muted small">ATT RPN</div>
+                <div class="fs-5">{{ status_counts.get('att_rpn', 0) }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-4">
+              <div class="p-3 bg-light rounded">
+                <div class="text-muted small">RPN</div>
+                <div class="fs-5">{{ status_counts.get('rpn', 0) }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-4">
+              <div class="p-3 bg-light rounded">
+                <div class="text-muted small">Litige</div>
+                <div class="fs-5">{{ status_counts.get('litige', 0) }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-4">
+              <div class="p-3 bg-light rounded">
+                <div class="text-muted small">Nivellement</div>
+                <div class="fs-5">{{ status_counts.get('nivellement', 0) }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-4">
+              <div class="p-3 bg-light rounded">
+                <div class="text-muted small">Stock</div>
+                <div class="fs-5">{{ status_counts.get('stock', 0) }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-4">
+              <div class="p-3 bg-light rounded">
+                <div class="text-muted small">Sous garantie</div>
+                <div class="fs-5">{{ status_counts.get('sous_garantie', 0) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white">
+          <h2 class="h5 mb-0">Numéros de série</h2>
+        </div>
+        <div class="card-body p-0">
+          {% if serials %}
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>#</th>
+                    <th>SN</th>
+                    <th>Statut</th>
+                    <th>Avion</th>
+                    <th>Référence DA</th>
+                    <th>Statut DA</th>
+                    <th>S/G</th>
+                    <th>Notes</th>
+                    <th class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for serial in serials %}
+                    <form method="post" action="{{ url_for('materials.update_serial', material_id=material.id, serial_id=serial.id) }}" class="serial-update-form" style="display: contents;">
+                      <tr class="{{ 'table-warning' if serial.status in ['att_rpn','rpn'] and (not serial.da_reference or not serial.da_status) else '' }}">
+                        <td>{{ loop.index }}</td>
+                        <td>
+                          <input class="form-control form-control-sm" name="serial_number" value="{{ serial.serial_number or '' }}" placeholder="SN">
+                        </td>
+                        <td>
+                          <select class="form-select form-select-sm" name="status" data-role="serial-status">
+                            {% for value, label in serial_status_choices %}
+                              <option value="{{ value }}" {% if serial.status == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                          </select>
+                        </td>
+                        <td>
+                          <select class="form-select form-select-sm" name="aircraft_id" data-role="serial-aircraft">
+                            <option value="">—</option>
+                            {% for plane in aircraft %}
+                              <option value="{{ plane.id }}" {% if serial.aircraft_id == plane.id %}selected{% endif %}>{{ plane.tail_number }}</option>
+                            {% endfor %}
+                          </select>
+                        </td>
+                        <td>
+                          <input class="form-control form-control-sm" name="da_reference" value="{{ serial.da_reference or '' }}" data-role="serial-da-reference">
+                        </td>
+                        <td>
+                          <input class="form-control form-control-sm" name="da_status" value="{{ serial.da_status or '' }}" data-role="serial-da-status">
+                        </td>
+                        <td class="text-center">
+                          <input class="form-check-input" type="checkbox" name="under_warranty" {% if serial.under_warranty %}checked{% endif %}>
+                        </td>
+                        <td>
+                          <input class="form-control form-control-sm" name="notes" value="{{ serial.notes or '' }}" placeholder="Observation">
+                        </td>
+                        <td class="text-end">
+                          <button class="btn btn-sm btn-outline-primary" type="submit">Mettre à jour</button>
+                        </td>
+                      </tr>
+                    </form>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="p-4 text-center text-muted">
+              Aucun numéro de série enregistré.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
     <div class="card shadow-sm">
       <div class="card-header bg-white">
         <h2 class="h5 mb-0">Besoins par tâches</h2>
       </div>
       <div class="card-body">
         {% if requirements %}
-          <ul class="list-group list-group-flush">
+          <div class="list-group list-group-flush">
             {% for req in requirements %}
-              <li class="list-group-item">
+              <div class="list-group-item">
                 <div class="d-flex justify-content-between">
                   <span>{{ req.task.visit.name }} · {{ req.task.name }}</span>
                   <span class="badge bg-primary">{{ req.quantity }}</span>
                 </div>
                 <small class="text-muted">Atelier {{ req.task.workshop.name if req.task.workshop else 'N/A' }}</small>
-              </li>
+              </div>
             {% endfor %}
-          </ul>
+          </div>
         {% else %}
           <p class="text-muted mb-0">Pas de besoin en cours.</p>
         {% endif %}
@@ -182,4 +328,63 @@
     </div>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+  (function() {
+    const categorySelect = document.getElementById('categoryUpdate');
+    const sections = Array.from(document.querySelectorAll('.category-section'));
+    const STATUS_REQUIRES_AIRCRAFT = new Set(['avionnee']);
+    const STATUS_REQUIRES_DA = new Set(['att_rpn', 'rpn']);
+
+    function toggleSections(category) {
+      sections.forEach(section => {
+        const isActive = section.getAttribute('data-category') === category;
+        section.classList.toggle('d-none', !isActive);
+        section.querySelectorAll('input, select, textarea').forEach(element => {
+          if (isActive) {
+            element.removeAttribute('disabled');
+          } else {
+            element.setAttribute('disabled', 'disabled');
+          }
+        });
+      });
+    }
+
+    function toggleSerialRow(row) {
+      const status = row.querySelector('[data-role="serial-status"]').value;
+      const aircraft = row.querySelector('[data-role="serial-aircraft"]');
+      const daReference = row.querySelector('[data-role="serial-da-reference"]');
+      const daStatus = row.querySelector('[data-role="serial-da-status"]');
+
+      if (STATUS_REQUIRES_AIRCRAFT.has(status)) {
+        aircraft.removeAttribute('disabled');
+      } else {
+        aircraft.value = '';
+        aircraft.setAttribute('disabled', 'disabled');
+      }
+
+      if (STATUS_REQUIRES_DA.has(status)) {
+        daReference.removeAttribute('disabled');
+        daStatus.removeAttribute('disabled');
+      } else {
+        daReference.value = '';
+        daStatus.value = '';
+        daReference.setAttribute('disabled', 'disabled');
+        daStatus.setAttribute('disabled', 'disabled');
+      }
+    }
+
+    document.querySelectorAll('.serial-update-form').forEach(form => {
+      const row = form.querySelector('tr');
+      const statusSelect = row.querySelector('[data-role="serial-status"]');
+      statusSelect.addEventListener('change', () => toggleSerialRow(row));
+      toggleSerialRow(row);
+    });
+
+    categorySelect.addEventListener('change', () => toggleSections(categorySelect.value));
+    toggleSections(categorySelect.value);
+  })();
+</script>
 {% endblock %}

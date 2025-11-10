@@ -1,0 +1,334 @@
+{% extends 'layout.html' %}
+{% block title %}Nouveau matériel{% endblock %}
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-1">Ajouter un matériel</h1>
+    <p class="text-muted mb-0">Renseigner les informations nécessaires selon la catégorie sélectionnée.</p>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('materials.index') }}">Retour</a>
+</div>
+{% endblock %}
+{% block page_content %}
+<form method="post" action="{{ url_for('materials.create') }}" id="materialForm" class="needs-validation" novalidate>
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+      <h2 class="h5 mb-0">Informations générales</h2>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-5">
+          <label class="form-label" for="designationInput">Désignation<span class="text-danger">*</span></label>
+          <input class="form-control" id="designationInput" name="designation" required>
+          <div class="invalid-feedback">Merci d'indiquer une désignation.</div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="categorySelect">Catégorie<span class="text-danger">*</span></label>
+          <select class="form-select" id="categorySelect" name="category" required>
+            {% for cat in categories %}
+              <option value="{{ cat }}">{{ cat|capitalize }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="workshopSelect">Atelier rattaché</label>
+          <select class="form-select" id="workshopSelect" name="workshop_id">
+            <option value="">Non renseigné</option>
+            {% for wk in workshops %}
+              <option value="{{ wk.id }}">{{ wk.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-3">
+          <label class="form-label" for="pnInput">PN</label>
+          <input class="form-control" id="pnInput" name="part_number">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="niinInput">NIIN</label>
+          <input class="form-control" id="niinInput" name="niin">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="nsnInput">NSN</label>
+          <input class="form-control" id="nsnInput" name="nsn">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="fscInput">FSC</label>
+          <input class="form-control" id="fscInput" name="fsc">
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-3">
+          <label class="form-label" for="cageInput">Code CAGE</label>
+          <input class="form-control" id="cageInput" name="cage_code">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="serialInput">Référence interne</label>
+          <input class="form-control" id="serialInput" name="serial_number" placeholder="Optionnel">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="contractInput">Type de contrat</label>
+          <input class="form-control" id="contractInput" name="contract_type" placeholder="FMS / MCO ...">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4 category-block" data-category="reparable">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h2 class="h5 mb-0">Paramètres réparables</h2>
+      <span class="badge bg-primary">Réparable</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <label class="form-label" for="dotationInput">Dotation totale<span class="text-danger">*</span></label>
+          <input class="form-control" id="dotationInput" name="dotation" type="number" min="0" value="0">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="perAircraftInput">Qté / avion</label>
+          <input class="form-control" id="perAircraftInput" name="per_aircraft" type="number" min="0" value="0">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="annualConsumptionInput">Consommation annuelle</label>
+          <input class="form-control" id="annualConsumptionInput" name="annual_consumption" type="number" min="0" value="0">
+        </div>
+        <div class="col-md-3 d-flex align-items-center">
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="warrantyToggle" name="warranty">
+            <label class="form-check-label" for="warrantyToggle">Sous garantie globale</label>
+          </div>
+        </div>
+      </div>
+      <p class="text-muted">La table ci-dessous doit contenir autant de lignes que la dotation totale. Les champs additionnels s'activent automatiquement selon le statut choisi.</p>
+      <div class="table-responsive">
+        <table class="table table-bordered align-middle" id="serialsTable">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 4rem;">#</th>
+              <th>Numéro de série</th>
+              <th>Statut</th>
+              <th>Avion</th>
+              <th>Référence DA</th>
+              <th>Statut DA</th>
+              <th>Sous garantie</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
+      </div>
+      <div class="alert alert-warning" role="alert">
+          Le système signalera automatiquement les numéros de série incomplets après l'enregistrement. Les champs non remplis peuvent être complétés ultérieurement depuis la fiche matériel.
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4 category-block d-none" data-category="consommable">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h2 class="h5 mb-0">Paramètres consommables</h2>
+      <span class="badge bg-success">Consommable</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label" for="stockInput">Stock disponible<span class="text-danger">*</span></label>
+          <input class="form-control" id="stockInput" name="stock" type="number" min="0" value="0">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label" for="rcaInput">Référence RCA / RCB</label>
+          <input class="form-control" id="rcaInput" name="rca_rcb_reference" placeholder="Ex. RCA-2024-001">
+          <div class="form-text">Obligatoire si le stock est nul.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4 category-block d-none" data-category="outillage">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h2 class="h5 mb-0">Paramètres outillage</h2>
+      <span class="badge bg-warning text-dark">Outillage</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="lastCalibrationInput">Date de calibration</label>
+          <input class="form-control" id="lastCalibrationInput" type="date" name="last_calibration_date">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="calibrationExpiryInput">Expiration calibration</label>
+          <input class="form-control" id="calibrationExpiryInput" type="date" name="calibration_expiration_date">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4 category-block d-none" data-category="banc d'essai">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h2 class="h5 mb-0">Paramètres banc d'essai</h2>
+      <span class="badge bg-info text-dark">Banc d'essai</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="benchCalibrationInput">Date de calibration</label>
+          <input class="form-control" id="benchCalibrationInput" type="date" name="last_calibration_date" data-category-field="banc d'essai">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="benchExpiryInput">Expiration calibration</label>
+          <input class="form-control" id="benchExpiryInput" type="date" name="calibration_expiration_date" data-category-field="banc d'essai">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end">
+    <a class="btn btn-outline-secondary me-2" href="{{ url_for('materials.index') }}">Annuler</a>
+    <button class="btn btn-primary" type="submit">Enregistrer</button>
+  </div>
+</form>
+
+<template id="serialRowTemplate">
+  <tr>
+    <td class="text-muted" data-role="row-index">1</td>
+    <td>
+      <input class="form-control form-control-sm" data-name="serials-__index__-serial_number" placeholder="SN">
+    </td>
+    <td>
+      <select class="form-select form-select-sm" data-role="status" data-name="serials-__index__-status">
+        {% for value, label in serial_status_choices %}
+          <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td>
+      <select class="form-select form-select-sm" data-role="aircraft" data-name="serials-__index__-aircraft_id" disabled>
+        <option value="">—</option>
+        {% for plane in aircraft %}
+          <option value="{{ plane.id }}">{{ plane.tail_number }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td>
+      <input class="form-control form-control-sm" data-role="da-reference" data-name="serials-__index__-da_reference" disabled>
+    </td>
+    <td>
+      <input class="form-control form-control-sm" data-role="da-status" data-name="serials-__index__-da_status" disabled>
+    </td>
+    <td class="text-center">
+      <div class="form-check d-flex justify-content-center">
+        <input class="form-check-input" type="checkbox" data-name="serials-__index__-under_warranty">
+      </div>
+    </td>
+    <td>
+      <input class="form-control form-control-sm" data-name="serials-__index__-notes" placeholder="Observation">
+    </td>
+  </tr>
+</template>
+
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+  (function() {
+    const form = document.getElementById('materialForm');
+    const categorySelect = document.getElementById('categorySelect');
+    const categoryBlocks = Array.from(document.querySelectorAll('.category-block'));
+    const dotationInput = document.getElementById('dotationInput');
+    const serialsTableBody = document.querySelector('#serialsTable tbody');
+    const template = document.getElementById('serialRowTemplate');
+
+    const STATUS_REQUIRES_AIRCRAFT = new Set(['avionnee']);
+    const STATUS_REQUIRES_DA = new Set(['att_rpn', 'rpn']);
+
+    function toggleCategoryBlocks(category) {
+      categoryBlocks.forEach(block => {
+        const isActive = block.getAttribute('data-category') === category;
+        block.classList.toggle('d-none', !isActive);
+        block.querySelectorAll('input, select, textarea').forEach(element => {
+          if (isActive) {
+            element.removeAttribute('disabled');
+          } else {
+            element.setAttribute('disabled', 'disabled');
+          }
+        });
+      });
+    }
+
+    function refreshRowVisibility(row) {
+      const statusSelect = row.querySelector('[data-role="status"]');
+      const aircraftSelect = row.querySelector('[data-role="aircraft"]');
+      const daReference = row.querySelector('[data-role="da-reference"]');
+      const daStatus = row.querySelector('[data-role="da-status"]');
+      const status = statusSelect.value;
+
+      if (STATUS_REQUIRES_AIRCRAFT.has(status)) {
+        aircraftSelect.removeAttribute('disabled');
+      } else {
+        aircraftSelect.value = '';
+        aircraftSelect.setAttribute('disabled', 'disabled');
+      }
+
+      if (STATUS_REQUIRES_DA.has(status)) {
+        daReference.removeAttribute('disabled');
+        daStatus.removeAttribute('disabled');
+      } else {
+        daReference.value = '';
+        daStatus.value = '';
+        daReference.setAttribute('disabled', 'disabled');
+        daStatus.setAttribute('disabled', 'disabled');
+      }
+    }
+
+    function rebuildSerialRows() {
+      if (categorySelect.value !== 'reparable') {
+        serialsTableBody.innerHTML = '';
+        return;
+      }
+
+      const desired = parseInt(dotationInput.value, 10);
+      const targetCount = isNaN(desired) || desired < 0 ? 0 : desired;
+      serialsTableBody.innerHTML = '';
+
+      for (let index = 0; index < targetCount; index++) {
+        const clone = template.content.cloneNode(true);
+        const row = clone.querySelector('tr');
+        row.querySelector('[data-role="row-index"]').textContent = index + 1;
+        row.querySelectorAll('[data-name]').forEach(element => {
+          const name = element.getAttribute('data-name').replace('__index__', index);
+          element.setAttribute('name', name);
+          element.removeAttribute('data-name');
+        });
+        row.querySelectorAll('[data-role="status"]').forEach(select => {
+          select.addEventListener('change', () => refreshRowVisibility(row));
+        });
+        serialsTableBody.appendChild(clone);
+      }
+
+      serialsTableBody.querySelectorAll('tr').forEach(row => refreshRowVisibility(row));
+    }
+
+    categorySelect.addEventListener('change', () => {
+      toggleCategoryBlocks(categorySelect.value);
+      rebuildSerialRows();
+    });
+
+    ['change', 'keyup'].forEach(eventName => {
+      dotationInput.addEventListener(eventName, rebuildSerialRows);
+    });
+
+    form.addEventListener('submit', event => {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      form.classList.add('was-validated');
+    });
+
+    toggleCategoryBlocks(categorySelect.value);
+    rebuildSerialRows();
+  })();
+</script>
+{% endblock %}
