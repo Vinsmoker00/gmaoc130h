@@ -205,6 +205,7 @@ def create():
             return redirect(url_for("materials.new"))
         for serial in serials:
             db.session.add(serial)
+        db.session.flush()
         material.recompute_status_counters()
 
     elif category == "consommable":
@@ -342,6 +343,7 @@ def update_serial(material_id: int, serial_id: int):
     serial.under_warranty = True if status == "sous_garantie" else request.form.get("under_warranty") == "on"
 
     if material.category == "reparable":
+        db.session.flush()
         material.recompute_status_counters()
 
     db.session.commit()

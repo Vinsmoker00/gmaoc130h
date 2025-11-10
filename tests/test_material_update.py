@@ -165,3 +165,69 @@ def test_reparable_creation_with_serials(client):
 
     issues = material.serial_data_issues()
     assert issues == []
+
+
+def test_dotation_shared_across_part_numbers(client):
+    login_response = login(client)
+    assert login_response.status_code == 200
+
+    workshop = Workshop(name="Hydraulique", description="Atelier hydraulique")
+    aircraft = Aircraft(tail_number="C130-100")
+    db.session.add_all([workshop, aircraft])
+    db.session.commit()
+
+    material_a = Material(
+        designation="Régulateur pression",
+        category="reparable",
+        part_number="PN-AX1",
+        workshop_id=workshop.id,
+    )
+    material_b = Material(
+        designation="Régulateur pression",
+        category="reparable",
+        part_number="PN-AX2",
+        workshop_id=workshop.id,
+    )
+    db.session.add_all([material_a, material_b])
+    db.session.commit()
+
+    serial_a = MaterialSerial(
+        material_id=material_a.id,
+        serial_number="REG-001",
+        status="avionnee",
+        aircraft_id=aircraft.id,
+    )
+    serial_b = MaterialSerial(
+        material_id=material_b.id,
+        serial_number="REG-002",
+        status="att_rpn",
+        da_reference="DA-42",
+        da_status="En transit",
+    )
+    db.session.add_all([serial_a, serial_b])
+    db.session.flush()
+
+    material_a.recompute_status_counters()
+    db.session.commit()
+
+    refreshed_a = Material.query.get(material_a.id)
+    refreshed_b = Material.query.get(material_b.id)
+
+    assert refreshed_a.dotation == 2
+    assert refreshed_b.dotation == 2
+    assert refreshed_a.avionnee == 1
+    assert refreshed_a.unavailable_for_repair == 1
+    assert refreshed_b.avionnee == 1
+    assert refreshed_b.unavailable_for_repair == 1
+
+    counts_a = refreshed_a.serial_status_counts()
+    counts_b = refreshed_b.serial_status_counts()
+
+    assert counts_a == counts_b
+    assert counts_a["avionnee"] == 1
+    assert counts_a["att_rpn"] == 1
+    assert counts_a["stock"] == 0
+    assert sum(counts_a.values()) == 2
+
+    assert refreshed_a.serial_data_issues() == []
+    assert refreshed_b.serial_data_issues() == []

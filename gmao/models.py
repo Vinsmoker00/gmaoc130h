@@ -162,6 +162,35 @@ class Material(db.Model):
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Material {self.designation}>"
 
+    def _designation_peers(self):
+        if self.category != "reparable":
+            return [self]
+        peers = (
+            Material.query.filter(
+                Material.category == "reparable",
+                Material.designation == self.designation,
+            )
+            .order_by(Material.id)
+            .all()
+        )
+        if not peers:
+            return [self]
+        if self not in peers:
+            peers.append(self)
+        return peers
+
+    def _designation_serials(self):
+        if self.category != "reparable":
+            return list(self.serials.all())
+        return (
+            MaterialSerial.query.join(Material)
+            .filter(
+                Material.category == "reparable",
+                Material.designation == self.designation,
+            )
+            .all()
+        )
+
     def serial_status_counts(self) -> dict[str, int]:
         counts: dict[str, int] = {
             "avionnee": 0,
@@ -172,7 +201,12 @@ class Material(db.Model):
             "stock": 0,
             "sous_garantie": 0,
         }
-        for serial in self.serials:
+        serials = (
+            self._designation_serials()
+            if self.category == "reparable"
+            else self.serials.all()
+        )
+        for serial in serials:
             status = serial.status or "stock"
             counts[status] = counts.get(status, 0) + 1
         return counts
@@ -181,19 +215,24 @@ class Material(db.Model):
         if self.category != "reparable":
             return
         counts = self.serial_status_counts()
-        self.dotation = sum(counts.values())
-        self.avionnee = counts.get("avionnee", 0)
-        self.unavailable_for_repair = counts.get("att_rpn", 0)
-        self.in_repair = counts.get("rpn", 0)
-        self.litigation = counts.get("litige", 0)
-        self.nivellement = counts.get("nivellement", 0)
-        self.stock = counts.get("stock", 0)
-        self.warranty = any(serial.under_warranty for serial in self.serials)
+        total = sum(counts.values())
+        peers = self._designation_peers()
+        serials = self._designation_serials()
+        warranty = any(serial.under_warranty for serial in serials)
+        for peer in peers:
+            peer.dotation = total
+            peer.avionnee = counts.get("avionnee", 0)
+            peer.unavailable_for_repair = counts.get("att_rpn", 0)
+            peer.in_repair = counts.get("rpn", 0)
+            peer.litigation = counts.get("litige", 0)
+            peer.nivellement = counts.get("nivellement", 0)
+            peer.stock = counts.get("stock", 0)
+            peer.warranty = warranty
 
     def serial_data_issues(self) -> list[str]:
         issues: list[str] = []
         if self.category == "reparable":
-            serials = list(self.serials)
+            serials = self._designation_serials()
             if self.dotation != len(serials):
                 issues.append(
                     "Le nombre de numéros de série ne correspond pas à la dotation déclarée."
