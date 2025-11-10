@@ -10,7 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from gmao import create_app
 from gmao.config import TestingConfig
 from gmao.extensions import db
-from gmao.models import Material
+from gmao.models import Aircraft, Material, MaterialSerial, Workshop
 
 
 @pytest.fixture
@@ -109,3 +109,125 @@ def test_material_identifier_updates(client):
     assert cleared.da_reference is None
     assert cleared.da_status is None
     assert cleared.contract_type is None
+
+
+def test_reparable_creation_with_serials(client):
+    login_response = login(client)
+    assert login_response.status_code == 200
+
+    workshop = Workshop(name="Essais", description="Atelier d'essais")
+    aircraft = Aircraft(tail_number="C130-001")
+    db.session.add_all([workshop, aircraft])
+    db.session.commit()
+
+    response = client.post(
+        "/materials/create",
+        data={
+            "designation": "Valves de régulation",
+            "category": "reparable",
+            "workshop_id": str(workshop.id),
+            "dotation": "2",
+            "per_aircraft": "2",
+            "annual_consumption": "4",
+            "serials-0-serial_number": "VALVE-001",
+            "serials-0-status": "avionnee",
+            "serials-0-aircraft_id": str(aircraft.id),
+            "serials-0-under_warranty": "on",
+            "serials-1-serial_number": "VALVE-002",
+            "serials-1-status": "att_rpn",
+            "serials-1-da_reference": "DA-0001",
+            "serials-1-da_status": "En transit",
+        },
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+
+    material = Material.query.filter_by(designation="Valves de régulation").first()
+    assert material is not None
+    assert material.category == "reparable"
+    assert material.dotation == 2
+    assert material.avionnee == 1
+    assert material.unavailable_for_repair == 1
+    assert material.in_repair == 0
+    assert material.primary_workshop == workshop
+
+    serials = MaterialSerial.query.filter_by(material_id=material.id).order_by(MaterialSerial.serial_number).all()
+    assert len(serials) == 2
+    assert serials[0].serial_number == "VALVE-001"
+    assert serials[0].status == "avionnee"
+    assert serials[0].aircraft_id == aircraft.id
+    assert serials[0].under_warranty is True
+
+    assert serials[1].serial_number == "VALVE-002"
+    assert serials[1].status == "att_rpn"
+    assert serials[1].da_reference == "DA-0001"
+    assert serials[1].da_status == "En transit"
+
+    issues = material.serial_data_issues()
+    assert issues == []
+
+
+def test_dotation_shared_across_part_numbers(client):
+    login_response = login(client)
+    assert login_response.status_code == 200
+
+    workshop = Workshop(name="Hydraulique", description="Atelier hydraulique")
+    aircraft = Aircraft(tail_number="C130-100")
+    db.session.add_all([workshop, aircraft])
+    db.session.commit()
+
+    material_a = Material(
+        designation="Régulateur pression",
+        category="reparable",
+        part_number="PN-AX1",
+        workshop_id=workshop.id,
+    )
+    material_b = Material(
+        designation="Régulateur pression",
+        category="reparable",
+        part_number="PN-AX2",
+        workshop_id=workshop.id,
+    )
+    db.session.add_all([material_a, material_b])
+    db.session.commit()
+
+    serial_a = MaterialSerial(
+        material_id=material_a.id,
+        serial_number="REG-001",
+        status="avionnee",
+        aircraft_id=aircraft.id,
+    )
+    serial_b = MaterialSerial(
+        material_id=material_b.id,
+        serial_number="REG-002",
+        status="att_rpn",
+        da_reference="DA-42",
+        da_status="En transit",
+    )
+    db.session.add_all([serial_a, serial_b])
+    db.session.flush()
+
+    material_a.recompute_status_counters()
+    db.session.commit()
+
+    refreshed_a = Material.query.get(material_a.id)
+    refreshed_b = Material.query.get(material_b.id)
+
+    assert refreshed_a.dotation == 2
+    assert refreshed_b.dotation == 2
+    assert refreshed_a.avionnee == 1
+    assert refreshed_a.unavailable_for_repair == 1
+    assert refreshed_b.avionnee == 1
+    assert refreshed_b.unavailable_for_repair == 1
+
+    counts_a = refreshed_a.serial_status_counts()
+    counts_b = refreshed_b.serial_status_counts()
+
+    assert counts_a == counts_b
+    assert counts_a["avionnee"] == 1
+    assert counts_a["att_rpn"] == 1
+    assert counts_a["stock"] == 0
+    assert sum(counts_a.values()) == 2
+
+    assert refreshed_a.serial_data_issues() == []
+    assert refreshed_b.serial_data_issues() == []

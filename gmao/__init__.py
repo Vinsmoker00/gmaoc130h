@@ -177,6 +177,14 @@ def apply_schema_upgrades() -> None:
             "consumable_dotation INTEGER NOT NULL DEFAULT 0",
         )
         add_material_column("consumable_type", "consumable_type VARCHAR(80)")
+        add_material_column("nivellement", "nivellement INTEGER NOT NULL DEFAULT 0")
+        add_material_column("rca_rcb_reference", "rca_rcb_reference VARCHAR(120)")
+        add_material_column("last_calibration_date", "last_calibration_date DATE")
+        add_material_column(
+            "calibration_expiration_date",
+            "calibration_expiration_date DATE",
+        )
+        add_material_column("workshop_id", "workshop_id INTEGER REFERENCES workshops(id)")
 
         for statement in statements:
             db.session.execute(statement)
