@@ -1,165 +1,173 @@
 {% extends 'layout.html' %}
-{% block title %}Matériels critiques{% endblock %}
+{% block title %}Matériels{% endblock %}
 {% block page_header %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
   <div>
-    <h1 class="h3 mb-0">Matériels</h1>
-    <p class="text-muted mb-0">Gestion des pièces réparables, consommables et outillage.</p>
+    <h1 class="h3 mb-1">Matériels</h1>
+    <p class="text-muted mb-0">Suivi des matériels réparables, consommables, outillages et bancs d'essai.</p>
   </div>
-  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newMaterialModal">Ajouter un matériel</button>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{{ url_for('materials.index') }}">Vue globale</a>
+    <a class="btn btn-primary" href="{{ url_for('materials.new') }}">Ajouter un matériel</a>
+  </div>
 </div>
 {% endblock %}
 {% block page_content %}
-<form class="row g-2 align-items-end mb-3" method="get">
-  <div class="col-auto">
-    <label class="form-label">Catégorie</label>
-    <select class="form-select" name="category">
-      <option value="">Toutes</option>
-      {% for cat in categories %}
-        <option value="{{ cat }}" {% if request.args.get('category') == cat %}selected{% endif %}>{{ cat|capitalize }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-auto">
-    <button class="btn btn-outline-secondary" type="submit">Filtrer</button>
-  </div>
-</form>
-<div class="table-responsive">
-  <table class="table table-striped table-hover align-middle">
-    <thead>
-      <tr>
-        <th>Désignation</th>
-        <th>PN</th>
-        <th>SN</th>
-        <th>NIIN</th>
-        <th>Dotation</th>
-        <th>Att. RPN</th>
-        <th>En RPN</th>
-        <th>Stock</th>
-        <th class="text-end">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for material in materials %}
-        <tr>
-          <td>{{ material.designation }}</td>
-          <td>{{ material.part_number or '—' }}</td>
-          <td>{{ material.serial_number or '—' }}</td>
-          <td>{{ material.niin or '—' }}</td>
-          <td>{{ material.dotation }}</td>
-          <td>{{ material.unavailable_for_repair }}</td>
-          <td>{{ material.in_repair }}</td>
-          <td>{{ material.stock }}</td>
-          <td class="text-end">
-            <div class="btn-group btn-group-sm">
-              <a class="btn btn-outline-primary" href="{{ url_for('materials.detail', material_id=material.id) }}">Voir</a>
-              <form method="post" action="{{ url_for('materials.delete', material_id=material.id) }}" onsubmit="return confirm('Supprimer ce matériel ?');">
-                <button class="btn btn-outline-danger" type="submit">Supprimer</button>
-              </form>
+<div class="row g-3 mb-4">
+  {% for cat in categories %}
+    {% set is_active = (cat == active_category) %}
+    <div class="col-12 col-md-6 col-xl-3">
+      <a class="text-decoration-none" href="{{ url_for('materials.index', category=cat) }}">
+        <div class="card shadow-sm h-100 {{ 'border-primary border-2' if is_active else '' }}">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <span class="fw-semibold text-uppercase small text-muted">{{ cat }}</span>
+              <span class="badge {{ 'bg-primary' if is_active else 'bg-light text-muted' }}">{{ category_counts.get(cat, 0) }}</span>
             </div>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+            <h2 class="h5 mb-1">{{ cat|capitalize }}</h2>
+            <p class="text-muted small mb-0">Consulter les 50 premiers enregistrements. {{ 'Catégorie active' if is_active else 'Cliquez pour afficher' }}.</p>
+          </div>
+        </div>
+      </a>
+    </div>
+  {% endfor %}
 </div>
-<div class="modal fade" id="newMaterialModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form method="post" action="{{ url_for('materials.create') }}">
-        <div class="modal-header">
-          <h5 class="modal-title">Nouveau matériel</h5>
-          <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3">
+      <div>
+        <h2 class="h5 mb-1">{{ active_category|capitalize }}</h2>
+        <p class="text-muted mb-0">Affichage limité aux 50 premières entrées pour des performances optimales.</p>
+      </div>
+      <form class="row row-cols-lg-auto g-2" method="get" action="{{ url_for('materials.index') }}">
+        <input type="hidden" name="category" value="{{ active_category }}">
+        <div class="col-12">
+          <label class="visually-hidden" for="searchInput">Recherche</label>
+          <input class="form-control" id="searchInput" name="search" placeholder="Recherche PN / NIIN / désignation" value="{{ search_term }}">
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label">Désignation</label>
-            <input class="form-control" name="designation" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Catégorie</label>
-            <select class="form-select" name="category" required>
-              <option value="reparable">Réparable</option>
-              <option value="consommable">Consommable</option>
-              <option value="outillage">Outillage</option>
-              <option value="banc d'essai">Banc d'essai</option>
-            </select>
-          </div>
-          <div class="row g-2 mt-2">
-            <div class="col-md-4">
-              <label class="form-label">PN</label>
-              <input class="form-control" name="part_number">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">SN</label>
-              <input class="form-control" name="serial_number">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">NIIN</label>
-              <input class="form-control" name="niin">
-            </div>
-          </div>
-          <div class="row g-2 mt-2">
-            <div class="col-md-6">
-              <label class="form-label">NSN</label>
-              <input class="form-control" name="nsn">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">FSC</label>
-              <input class="form-control" name="fsc">
-            </div>
-          </div>
-          <div class="row g-2">
-            <div class="col">
-              <label class="form-label">Dotation</label>
-              <input class="form-control" name="dotation" type="number" min="0" value="0">
-            </div>
-            <div class="col">
-              <label class="form-label">Stock sol</label>
-              <input class="form-control" name="stock" type="number" min="0" value="0">
-            </div>
-          </div>
-          <div class="row g-2 mt-2">
-            <div class="col">
-              <label class="form-label">Avionnée</label>
-              <input class="form-control" name="avionnee" type="number" min="0" value="0">
-            </div>
-            <div class="col">
-              <label class="form-label">Att. RPN</label>
-              <input class="form-control" name="unavailable_for_repair" type="number" min="0" value="0">
-            </div>
-          </div>
-          <div class="row g-2 mt-2">
-            <div class="col">
-              <label class="form-label">En RPN</label>
-              <input class="form-control" name="in_repair" type="number" min="0" value="0">
-            </div>
-            <div class="col">
-              <label class="form-label">Consommation annuelle</label>
-              <input class="form-control" name="annual_consumption" type="number" min="0" value="0">
-            </div>
-          </div>
-          <div class="row g-2 mt-2">
-            <div class="col">
-              <label class="form-label">Stock consommable</label>
-              <input class="form-control" name="consumable_stock" type="number" min="0" value="0">
-            </div>
-            <div class="col">
-              <label class="form-label">Dotation consommable</label>
-              <input class="form-control" name="consumable_dotation" type="number" min="0" value="0">
-            </div>
-          </div>
-          <div class="mb-3 mt-2">
-            <label class="form-label">Type consommable</label>
-            <input class="form-control" name="consumable_type">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Annuler</button>
-          <button class="btn btn-primary" type="submit">Enregistrer</button>
+        <div class="col-12">
+          <button class="btn btn-outline-primary" type="submit">Rechercher</button>
         </div>
       </form>
     </div>
+  </div>
+  <div class="card-body p-0">
+    {% if materials %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            {% if active_category == 'reparable' %}
+              <tr>
+                <th>Désignation</th>
+                <th>PN</th>
+                <th>Dotation</th>
+                <th>Avionnée</th>
+                <th>ATT RPN</th>
+                <th>RPN</th>
+                <th>Litige</th>
+                <th>Nivellement</th>
+                <th>Stock</th>
+                <th>Atelier</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            {% elif active_category == 'consommable' %}
+              <tr>
+                <th>Désignation</th>
+                <th>PN</th>
+                <th>NIIN</th>
+                <th>Stock</th>
+                <th>Référence RCA/RCB</th>
+                <th>Atelier</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            {% else %}
+              <tr>
+                <th>Désignation</th>
+                <th>PN</th>
+                <th>NIIN</th>
+                <th>Dernière calibration</th>
+                <th>Expiration</th>
+                <th>Atelier</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            {% endif %}
+          </thead>
+          <tbody>
+            {% for material in materials %}
+              <tr class="{{ 'table-warning' if material.serial_data_issues() else '' }}">
+                <td class="fw-semibold">{{ material.designation }}</td>
+                <td>{{ material.part_number or '—' }}</td>
+                {% if active_category == 'reparable' %}
+                  <td>{{ material.dotation }}</td>
+                  <td>{{ material.avionnee }}</td>
+                  <td>{{ material.unavailable_for_repair }}</td>
+                  <td>{{ material.in_repair }}</td>
+                  <td>{{ material.litigation }}</td>
+                  <td>{{ material.nivellement }}</td>
+                  <td>{{ material.stock }}</td>
+                {% elif active_category == 'consommable' %}
+                  <td>{{ material.niin or '—' }}</td>
+                  <td>{{ material.stock }}</td>
+                  <td>{{ material.rca_rcb_reference or '—' }}</td>
+                {% else %}
+                  <td>{{ material.niin or '—' }}</td>
+                  <td>{{ material.last_calibration_date or '—' }}</td>
+                  <td>{{ material.calibration_expiration_date or '—' }}</td>
+                {% endif %}
+                <td>{{ material.primary_workshop.name if material.primary_workshop else '—' }}</td>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-primary" href="{{ url_for('materials.detail', material_id=material.id) }}">Voir</a>
+                    <form method="post" action="{{ url_for('materials.delete', material_id=material.id) }}" onsubmit="return confirm('Supprimer ce matériel ?');">
+                      <button class="btn btn-outline-danger" type="submit">Supprimer</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-4 text-center text-muted">
+        Aucun matériel trouvé pour cette catégorie.
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h2 class="h5 mb-0">Surveillance des données critiques</h2>
+    <span class="badge bg-danger">{{ critical_materials|length }}</span>
+  </div>
+  <div class="card-body">
+    {% if critical_materials %}
+      <div class="list-group list-group-flush">
+        {% for material, issues in critical_materials %}
+          <div class="list-group-item py-3">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <h3 class="h6 mb-1">
+                  <a class="text-decoration-none" href="{{ url_for('materials.detail', material_id=material.id) }}">{{ material.designation }}</a>
+                  <span class="badge bg-light text-muted ms-2">{{ material.category|capitalize }}</span>
+                </h3>
+                <p class="text-muted small mb-2">PN {{ material.part_number or '—' }} · Atelier {{ material.primary_workshop.name if material.primary_workshop else 'Non assigné' }}</p>
+                <ul class="ps-3 mb-0 small">
+                  {% for issue in issues %}
+                    <li>{{ issue }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+              <span class="badge bg-danger">Attention</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">Aucune anomalie détectée sur les enregistrements récents.</p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

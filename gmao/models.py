@@ -34,6 +34,11 @@ class Workshop(db.Model):
         cascade="all, delete-orphan",
         lazy="dynamic",
     )
+    primary_materials = db.relationship(
+        "Material",
+        back_populates="primary_workshop",
+        lazy="dynamic",
+    )
     visits = db.relationship("MaintenanceTask", back_populates="workshop", lazy="dynamic")
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -122,6 +127,11 @@ class Material(db.Model):
     consumable_stock = db.Column(db.Integer, default=0)
     consumable_dotation = db.Column(db.Integer, default=0)
     consumable_type = db.Column(db.String(80))
+    nivellement = db.Column(db.Integer, default=0)
+    rca_rcb_reference = db.Column(db.String(120))
+    last_calibration_date = db.Column(db.Date)
+    calibration_expiration_date = db.Column(db.Date)
+    workshop_id = db.Column(db.Integer, db.ForeignKey("workshops.id"))
 
     workshop_links = db.relationship(
         "WorkshopMaterial",
@@ -141,9 +151,101 @@ class Material(db.Model):
         cascade="all, delete-orphan",
         lazy="dynamic",
     )
+    serials = db.relationship(
+        "MaterialSerial",
+        back_populates="material",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+    primary_workshop = db.relationship("Workshop", back_populates="primary_materials")
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Material {self.designation}>"
+
+    def serial_status_counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {
+            "avionnee": 0,
+            "att_rpn": 0,
+            "rpn": 0,
+            "litige": 0,
+            "nivellement": 0,
+            "stock": 0,
+            "sous_garantie": 0,
+        }
+        for serial in self.serials:
+            status = serial.status or "stock"
+            counts[status] = counts.get(status, 0) + 1
+        return counts
+
+    def recompute_status_counters(self) -> None:
+        if self.category != "reparable":
+            return
+        counts = self.serial_status_counts()
+        self.dotation = sum(counts.values())
+        self.avionnee = counts.get("avionnee", 0)
+        self.unavailable_for_repair = counts.get("att_rpn", 0)
+        self.in_repair = counts.get("rpn", 0)
+        self.litigation = counts.get("litige", 0)
+        self.nivellement = counts.get("nivellement", 0)
+        self.stock = counts.get("stock", 0)
+        self.warranty = any(serial.under_warranty for serial in self.serials)
+
+    def serial_data_issues(self) -> list[str]:
+        issues: list[str] = []
+        if self.category == "reparable":
+            serials = list(self.serials)
+            if self.dotation != len(serials):
+                issues.append(
+                    "Le nombre de numéros de série ne correspond pas à la dotation déclarée."
+                )
+            for serial in serials:
+                if not serial.serial_number:
+                    issues.append(
+                        "Numéro de série manquant pour une ligne de dotation."
+                    )
+                if serial.status == "avionnee" and serial.aircraft_id is None:
+                    issues.append(
+                        f"SN {serial.display_identifier} sans appareil associé."
+                    )
+                if serial.status in {"att_rpn", "rpn"} and (
+                    not serial.da_reference or not serial.da_status
+                ):
+                    issues.append(
+                        f"SN {serial.display_identifier} sans référence DA complète."
+                    )
+        if (
+            self.category == "consommable"
+            and (self.consumable_stock or self.stock) == 0
+            and not self.rca_rcb_reference
+        ):
+            issues.append("Référence RCA/RCB requise pour un stock nul.")
+        if self.category in {"outillage", "banc d'essai"}:
+            if self.calibration_expiration_date and self.calibration_expiration_date < date.today():
+                issues.append("Étalonnage expiré.")
+        return issues
+
+
+class MaterialSerial(db.Model):
+    __tablename__ = "material_serials"
+
+    id = db.Column(db.Integer, primary_key=True)
+    material_id = db.Column(db.Integer, db.ForeignKey("materials.id"), nullable=False)
+    serial_number = db.Column(db.String(120))
+    status = db.Column(db.String(30), default="stock")
+    aircraft_id = db.Column(db.Integer, db.ForeignKey("aircraft.id"))
+    da_reference = db.Column(db.String(80))
+    da_status = db.Column(db.String(80))
+    notes = db.Column(db.Text)
+    under_warranty = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    material = db.relationship("Material", back_populates="serials")
+    aircraft = db.relationship("Aircraft")
+
+    @property
+    def display_identifier(self) -> str:
+        return self.serial_number or f"ID#{self.id}"
 
 
 class WorkshopMaterial(db.Model):
